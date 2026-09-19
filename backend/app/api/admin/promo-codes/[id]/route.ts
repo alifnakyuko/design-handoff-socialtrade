@@ -27,6 +27,9 @@ export async function PATCH(request: Request, { params }: { params: { id: string
   if (active !== undefined && typeof active !== 'boolean') {
     return NextResponse.json({ error: 'active must be a boolean' }, { status: 400 });
   }
+  if (percent === undefined && expiresAt === undefined && active === undefined) {
+    return NextResponse.json({ error: 'At least one of percent, expiresAt, or active must be provided' }, { status: 400 });
+  }
 
   const adminSupabase = createAdminClient();
   await updatePromoCode(adminSupabase, params.id, { percent, expiresAt, active });
