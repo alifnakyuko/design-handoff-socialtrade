@@ -12,6 +12,7 @@ function fakeAdminSupabase(opts: {
           data: { user: opts.createUserResult.user },
           error: opts.createUserResult.error,
         })),
+        deleteUser: vi.fn(async () => ({ error: null })),
       },
     },
     from: () => ({
@@ -42,5 +43,7 @@ describe('signup', () => {
     });
     const result = await signup(supabase, { email: 'a@b.com', password: 'secret123', name: 'Ana' });
     expect(result).toEqual({ status: 'error', message: 'Failed to create user profile' });
+    expect(supabase.auth.admin.deleteUser).toHaveBeenCalledTimes(1);
+    expect(supabase.auth.admin.deleteUser).toHaveBeenCalledWith('u1');
   });
 });

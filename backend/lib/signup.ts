@@ -23,6 +23,7 @@ export async function signup(adminSupabase: SupabaseClient, input: SignupInput):
   });
 
   if (profileError) {
+    await adminSupabase.auth.admin.deleteUser(data.user.id);
     return { status: 'error', message: 'Failed to create user profile' };
   }
 
