@@ -19,5 +19,8 @@ export async function POST(request: Request) {
   if (result.status === 'order_not_found') {
     return NextResponse.json({ error: 'Order not found' }, { status: 404 });
   }
+  if (result.status === 'write_failed') {
+    return NextResponse.json({ error: 'Failed to update order' }, { status: 500 });
+  }
   return NextResponse.json({ ok: true });
 }

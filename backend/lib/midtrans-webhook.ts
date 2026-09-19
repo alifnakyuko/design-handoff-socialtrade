@@ -24,7 +24,7 @@ export async function handleMidtransNotification(
   supabase: SupabaseClient,
   notification: MidtransNotification,
   serverKey: string
-): Promise<{ status: 'ignored' | 'invalid_signature' | 'order_not_found' | 'updated' }> {
+): Promise<{ status: 'ignored' | 'invalid_signature' | 'order_not_found' | 'updated' | 'write_failed' }> {
   if (!verifyMidtransSignature(notification, serverKey)) {
     return { status: 'invalid_signature' };
   }
@@ -47,11 +47,14 @@ export async function handleMidtransNotification(
   }
 
   if (isFailure) {
-    await supabase.from('orders').update({ status: 'failed' }).eq('id', order.id);
+    const { error: failedUpdateError } = await supabase.from('orders').update({ status: 'failed' }).eq('id', order.id);
+    if (failedUpdateError) {
+      return { status: 'write_failed' };
+    }
     return { status: 'updated' };
   }
 
-  await supabase
+  const { error: paidUpdateError } = await supabase
     .from('orders')
     .update({
       status: 'paid',
@@ -60,12 +63,19 @@ export async function handleMidtransNotification(
     })
     .eq('id', order.id);
 
+  if (paidUpdateError) {
+    return { status: 'write_failed' };
+  }
+
   const { data: userRow } = await supabase.from('users').select('tier').eq('id', order.user_id).single();
   const currentTier: Tier = (userRow?.tier as Tier) ?? 'free';
   const purchasedTier = order.plan as Plan as Tier;
 
   if (tierRank(purchasedTier) > tierRank(currentTier)) {
-    await supabase.from('users').update({ tier: purchasedTier }).eq('id', order.user_id);
+    const { error: tierUpdateError } = await supabase.from('users').update({ tier: purchasedTier }).eq('id', order.user_id);
+    if (tierUpdateError) {
+      return { status: 'write_failed' };
+    }
   }
 
   return { status: 'updated' };
