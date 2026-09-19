@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { createPromoCode, setPromoCodeActive } from './admin-promo';
+import { createPromoCode, setPromoCodeActive, listPromoCodes, updatePromoCode, deletePromoCode } from './admin-promo';
 
 function fakeSupabase() {
   const inserted: any[] = [];
@@ -45,5 +45,99 @@ describe('setPromoCodeActive', () => {
     const supabase = fakeSupabase();
     await setPromoCodeActive(supabase, 'promo-1', false);
     expect(supabase.updated[0]).toEqual({ id: 'promo-1', patch: { active: false } });
+  });
+});
+
+describe('listPromoCodes', () => {
+  it('returns rows ordered as given by the query', async () => {
+    const rows = [
+      { id: 'p2', code: 'HEMAT20', percent: 20, active: true, expires_at: '2026-12-31' },
+      { id: 'p1', code: 'HEMAT10', percent: 10, active: false, expires_at: '2026-11-30' },
+    ];
+    const supabase = {
+      from: () => ({
+        select: () => ({
+          order: async () => ({ data: rows, error: null }),
+        }),
+      }),
+    } as any;
+
+    expect(await listPromoCodes(supabase)).toEqual(rows);
+  });
+
+  it('returns an empty array on a query error', async () => {
+    const supabase = {
+      from: () => ({
+        select: () => ({
+          order: async () => ({ data: null, error: { message: 'boom' } }),
+        }),
+      }),
+    } as any;
+
+    expect(await listPromoCodes(supabase)).toEqual([]);
+  });
+});
+
+describe('updatePromoCode', () => {
+  it('patches only the provided fields', async () => {
+    const updated: { id: string; patch: any }[] = [];
+    const supabase = {
+      from: () => ({
+        update: (patch: any) => ({
+          eq: async (_col: string, id: string) => {
+            updated.push({ id, patch });
+            return { error: null };
+          },
+        }),
+      }),
+    } as any;
+
+    await updatePromoCode(supabase, 'promo-1', { percent: 25 });
+    expect(updated[0]).toEqual({ id: 'promo-1', patch: { percent: 25 } });
+  });
+
+  it('throws when the update fails', async () => {
+    const supabase = {
+      from: () => ({
+        update: () => ({
+          eq: async () => ({ error: { message: 'boom' } }),
+        }),
+      }),
+    } as any;
+
+    await expect(updatePromoCode(supabase, 'promo-1', { active: true })).rejects.toThrow(
+      'Failed to update promo code'
+    );
+  });
+});
+
+describe('deletePromoCode', () => {
+  it('calls delete().eq() with the given id', async () => {
+    const deleted: string[] = [];
+    const supabase = {
+      from: () => ({
+        delete: () => ({
+          eq: async (_col: string, id: string) => {
+            deleted.push(id);
+            return { error: null };
+          },
+        }),
+      }),
+    } as any;
+
+    await deletePromoCode(supabase, 'promo-1');
+    expect(deleted).toEqual(['promo-1']);
+  });
+
+  it('throws when the delete fails', async () => {
+    const supabase = {
+      from: () => ({
+        delete: () => ({
+          eq: async () => ({ error: { message: 'boom' } }),
+        }),
+      }),
+    } as any;
+
+    await expect(deletePromoCode(supabase, 'promo-1')).rejects.toThrow('Failed to delete promo code');
   });
 });
