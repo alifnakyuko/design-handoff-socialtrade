@@ -21,11 +21,15 @@ export async function sendContentNotification(
   );
   if (eligible.length === 0) return 0;
 
-  await emailClient.send({
-    to: eligible.map((u) => u.email),
-    subject: `Konten baru: ${item.title}`,
-    html: `<p>Ada ${item.type} baru untuk Anda: <strong>${item.title}</strong>. Login untuk melihat.</p>`,
-  });
+  await Promise.all(
+    eligible.map((u) =>
+      emailClient.send({
+        to: [u.email],
+        subject: `Konten baru: ${item.title}`,
+        html: `<p>Ada ${item.type} baru untuk Anda: <strong>${item.title}</strong>. Login untuk melihat.</p>`,
+      })
+    )
+  );
 
   return eligible.length;
 }

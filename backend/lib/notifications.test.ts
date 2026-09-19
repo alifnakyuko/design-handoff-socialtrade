@@ -36,9 +36,10 @@ describe('sendContentNotification', () => {
     });
 
     expect(count).toBe(2);
-    expect(emailClient.calls).toHaveLength(1);
-    expect(emailClient.calls[0].to).toEqual(['gold@x.com', 'lifetime@x.com']);
+    expect(emailClient.calls).toHaveLength(2);
+    expect(emailClient.calls.map((c) => c.to[0]).sort()).toEqual(['gold@x.com', 'lifetime@x.com']);
     expect(emailClient.calls[0].subject).toContain('ANTM Watchlist');
+    expect(emailClient.calls[1].subject).toContain('ANTM Watchlist');
   });
 
   it('does not call the email client and returns 0 when no members are eligible', async () => {
