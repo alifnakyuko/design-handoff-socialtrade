@@ -29,7 +29,8 @@ export async function createCheckout(
       .eq('code', input.promoCode)
       .single();
 
-    if (error || !promo || !promo.active || new Date(promo.expires_at) < new Date()) {
+    const todayDateOnly = new Date().toISOString().slice(0, 10);
+    if (error || !promo || !promo.active || promo.expires_at < todayDateOnly) {
       return { status: 'invalid_promo' };
     }
 
