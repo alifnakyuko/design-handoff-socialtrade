@@ -57,7 +57,13 @@ export async function updatePromoCode(supabase: SupabaseClient, id: string, inpu
   if (error) throw new Error('Failed to update promo code');
 }
 
-export async function deletePromoCode(supabase: SupabaseClient, id: string): Promise<void> {
+export async function deletePromoCode(supabase: SupabaseClient, id: string): Promise<{ status: 'ok' } | { status: 'in_use' }> {
   const { error } = await supabase.from('promo_codes').delete().eq('id', id);
-  if (error) throw new Error('Failed to delete promo code');
+  if (error?.code === '23503') {
+    return { status: 'in_use' };
+  }
+  if (error) {
+    throw new Error('Failed to delete promo code');
+  }
+  return { status: 'ok' };
 }

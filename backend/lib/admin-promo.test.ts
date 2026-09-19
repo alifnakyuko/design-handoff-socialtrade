@@ -125,8 +125,9 @@ describe('deletePromoCode', () => {
       }),
     } as any;
 
-    await deletePromoCode(supabase, 'promo-1');
+    const result = await deletePromoCode(supabase, 'promo-1');
     expect(deleted).toEqual(['promo-1']);
+    expect(result).toEqual({ status: 'ok' });
   });
 
   it('throws when the delete fails', async () => {
@@ -139,5 +140,18 @@ describe('deletePromoCode', () => {
     } as any;
 
     await expect(deletePromoCode(supabase, 'promo-1')).rejects.toThrow('Failed to delete promo code');
+  });
+
+  it('returns in_use when the delete fails due to a foreign key violation', async () => {
+    const supabase = {
+      from: () => ({
+        delete: () => ({
+          eq: async () => ({ error: { code: '23503', message: 'foreign key violation' } }),
+        }),
+      }),
+    } as any;
+
+    const result = await deletePromoCode(supabase, 'promo-1');
+    expect(result).toEqual({ status: 'in_use' });
   });
 });

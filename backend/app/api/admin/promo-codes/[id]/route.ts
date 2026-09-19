@@ -45,6 +45,12 @@ export async function DELETE(request: Request, { params }: { params: { id: strin
   }
 
   const adminSupabase = createAdminClient();
-  await deletePromoCode(adminSupabase, params.id);
+  const result = await deletePromoCode(adminSupabase, params.id);
+  if (result.status === 'in_use') {
+    return NextResponse.json(
+      { error: 'This promo code has been used on an order and cannot be deleted — deactivate it instead' },
+      { status: 409 }
+    );
+  }
   return NextResponse.json({ ok: true });
 }
