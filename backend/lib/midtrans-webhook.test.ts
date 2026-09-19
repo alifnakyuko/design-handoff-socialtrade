@@ -167,6 +167,48 @@ describe('handleMidtransNotification', () => {
     expect(result).toEqual({ status: 'write_failed' });
   });
 
+  it('returns write_failed and does not write a tier when reading the current tier fails', async () => {
+    const notification = signedNotification({ transaction_status: 'settlement' });
+    const orderRow = { id: 'order-1', user_id: 'u1', plan: 'silver', status: 'pending' };
+    const userUpdates: any[] = [];
+    const supabase = {
+      from: (table: string) => {
+        if (table === 'orders') {
+          return {
+            select: () => ({
+              eq: () => ({
+                single: async () => ({ data: orderRow, error: null }),
+              }),
+            }),
+            update: () => ({
+              eq: async () => ({ error: null }),
+            }),
+          };
+        }
+        if (table === 'users') {
+          return {
+            select: () => ({
+              eq: () => ({
+                single: async () => ({ data: null, error: { message: 'db error' } }),
+              }),
+            }),
+            update: (patch: any) => ({
+              eq: async () => {
+                userUpdates.push(patch);
+                return { error: null };
+              },
+            }),
+          };
+        }
+        throw new Error(`unexpected table ${table}`);
+      },
+    } as any;
+
+    const result = await handleMidtransNotification(supabase, notification, SERVER_KEY);
+    expect(result).toEqual({ status: 'write_failed' });
+    expect(userUpdates).toHaveLength(0);
+  });
+
   it('ignores in-progress statuses like pending', async () => {
     const notification = signedNotification({ transaction_status: 'pending' });
     const supabase = fakeSupabase({

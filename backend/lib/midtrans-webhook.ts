@@ -67,7 +67,16 @@ export async function handleMidtransNotification(
     return { status: 'write_failed' };
   }
 
-  const { data: userRow } = await supabase.from('users').select('tier').eq('id', order.user_id).single();
+  const { data: userRow, error: userReadError } = await supabase
+    .from('users')
+    .select('tier')
+    .eq('id', order.user_id)
+    .single();
+
+  if (userReadError) {
+    return { status: 'write_failed' };
+  }
+
   const currentTier: Tier = (userRow?.tier as Tier) ?? 'free';
   const purchasedTier = order.plan as Plan as Tier;
 
