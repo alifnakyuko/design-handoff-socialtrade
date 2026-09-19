@@ -38,13 +38,17 @@ export async function publishContent(
     required_tier: input.required_tier,
   });
 
-  await supabase.from('push_history').insert({
+  const { error: pushHistoryError } = await supabase.from('push_history').insert({
     content_item_id: inserted.id,
     type: input.type,
     title: input.title,
     pushed_by: input.createdBy,
     notified_count: notifiedCount,
   });
+
+  if (pushHistoryError) {
+    throw new Error('Failed to log push history');
+  }
 
   return { id: inserted.id, notifiedCount };
 }
