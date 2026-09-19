@@ -26,6 +26,17 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: 'title is required' }, { status: 400 });
   }
 
+  const VALID_TIERS = ['free', 'silver', 'gold', 'platinum', 'lifetime'];
+  if (!VALID_TIERS.includes(required_tier)) {
+    return NextResponse.json(
+      { error: 'required_tier must be one of free, silver, gold, platinum, lifetime' },
+      { status: 400 }
+    );
+  }
+  if (payload !== undefined && (typeof payload !== 'object' || payload === null || Array.isArray(payload))) {
+    return NextResponse.json({ error: 'payload must be an object' }, { status: 400 });
+  }
+
   const adminSupabase = createAdminClient();
   const emailClient = createResendEmailClient();
 
