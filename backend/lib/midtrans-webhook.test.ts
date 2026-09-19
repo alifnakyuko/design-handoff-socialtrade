@@ -1,0 +1,142 @@
+import { describe, it, expect } from 'vitest';
+import crypto from 'crypto';
+import { verifyMidtransSignature, handleMidtransNotification, type MidtransNotification } from './midtrans-webhook';
+
+const SERVER_KEY = 'test-server-key';
+
+function signedNotification(overrides: Partial<MidtransNotification>): MidtransNotification {
+  const base = {
+    order_id: 'ST-u1-123',
+    status_code: '200',
+    gross_amount: '2600000.00',
+    transaction_status: 'settlement',
+    transaction_id: 'tx-1',
+    ...overrides,
+  };
+  const signature_key = crypto
+    .createHash('sha512')
+    .update(base.order_id + base.status_code + base.gross_amount + SERVER_KEY)
+    .digest('hex');
+  return { ...base, signature_key };
+}
+
+function fakeSupabase(opts: { orderRow?: any; userRow?: any }) {
+  const orderUpdates: any[] = [];
+  const userUpdates: any[] = [];
+  return {
+    orderUpdates,
+    userUpdates,
+    from: (table: string) => {
+      if (table === 'orders') {
+        return {
+          select: () => ({
+            eq: () => ({
+              single: async () => ({ data: opts.orderRow ?? null, error: opts.orderRow ? null : { message: 'not found' } }),
+            }),
+          }),
+          update: (patch: any) => ({
+            eq: async () => {
+              orderUpdates.push(patch);
+              return { error: null };
+            },
+          }),
+        };
+      }
+      if (table === 'users') {
+        return {
+          select: () => ({
+            eq: () => ({
+              single: async () => ({ data: opts.userRow ?? { tier: 'free' }, error: null }),
+            }),
+          }),
+          update: (patch: any) => ({
+            eq: async () => {
+              userUpdates.push(patch);
+              return { error: null };
+            },
+          }),
+        };
+      }
+      throw new Error(`unexpected table ${table}`);
+    },
+  } as any;
+}
+
+describe('verifyMidtransSignature', () => {
+  it('accepts a correctly signed notification', () => {
+    const notification = signedNotification({});
+    expect(verifyMidtransSignature(notification, SERVER_KEY)).toBe(true);
+  });
+
+  it('rejects a tampered notification', () => {
+    const notification = signedNotification({ gross_amount: '9999999.00' });
+    notification.gross_amount = '1.00';
+    expect(verifyMidtransSignature(notification, SERVER_KEY)).toBe(false);
+  });
+});
+
+describe('handleMidtransNotification', () => {
+  it('returns invalid_signature and makes no updates when the signature is wrong', async () => {
+    const notification = signedNotification({});
+    notification.signature_key = 'wrong';
+    const supabase = fakeSupabase({});
+    const result = await handleMidtransNotification(supabase, notification, SERVER_KEY);
+    expect(result).toEqual({ status: 'invalid_signature' });
+  });
+
+  it('returns order_not_found when no order matches the midtrans order id', async () => {
+    const notification = signedNotification({});
+    const supabase = fakeSupabase({ orderRow: undefined });
+    const result = await handleMidtransNotification(supabase, notification, SERVER_KEY);
+    expect(result).toEqual({ status: 'order_not_found' });
+  });
+
+  it('marks the order paid and upgrades the user tier on settlement', async () => {
+    const notification = signedNotification({ transaction_status: 'settlement' });
+    const supabase = fakeSupabase({
+      orderRow: { id: 'order-1', user_id: 'u1', plan: 'gold', status: 'pending' },
+      userRow: { tier: 'free' },
+    });
+
+    const result = await handleMidtransNotification(supabase, notification, SERVER_KEY);
+
+    expect(result).toEqual({ status: 'updated' });
+    expect(supabase.orderUpdates[0]).toMatchObject({ status: 'paid', midtrans_transaction_id: 'tx-1' });
+    expect(supabase.userUpdates[0]).toEqual({ tier: 'gold' });
+  });
+
+  it('does not downgrade a higher existing tier on settlement of a lower plan', async () => {
+    const notification = signedNotification({ transaction_status: 'settlement' });
+    const supabase = fakeSupabase({
+      orderRow: { id: 'order-1', user_id: 'u1', plan: 'silver', status: 'pending' },
+      userRow: { tier: 'lifetime' },
+    });
+
+    await handleMidtransNotification(supabase, notification, SERVER_KEY);
+
+    expect(supabase.userUpdates).toHaveLength(0);
+  });
+
+  it('marks the order failed and does not touch the user tier on cancel', async () => {
+    const notification = signedNotification({ transaction_status: 'cancel' });
+    const supabase = fakeSupabase({
+      orderRow: { id: 'order-1', user_id: 'u1', plan: 'gold', status: 'pending' },
+    });
+
+    const result = await handleMidtransNotification(supabase, notification, SERVER_KEY);
+
+    expect(result).toEqual({ status: 'updated' });
+    expect(supabase.orderUpdates[0]).toEqual({ status: 'failed' });
+    expect(supabase.userUpdates).toHaveLength(0);
+  });
+
+  it('ignores in-progress statuses like pending', async () => {
+    const notification = signedNotification({ transaction_status: 'pending' });
+    const supabase = fakeSupabase({
+      orderRow: { id: 'order-1', user_id: 'u1', plan: 'gold', status: 'pending' },
+    });
+
+    const result = await handleMidtransNotification(supabase, notification, SERVER_KEY);
+    expect(result).toEqual({ status: 'ignored' });
+  });
+});
