@@ -1,0 +1,397 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Sora:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<style>
+body{margin:0;background:#fff;-webkit-font-smoothing:antialiased}
+a{color:#B8860B;text-decoration:none}
+a:hover{color:#8A6400;text-decoration:underline}
+*{box-sizing:border-box}
+</style>
+<script src="./image-slot.js"></script>
+</helmet>
+
+<div style="font-family:'Sora',sans-serif;color:#14140F;">
+
+<!-- NAV -->
+<div style="background:{{ zoneBackground }};">
+<div style="max-width:1200px;margin:0 auto;padding:18px 24px;display:flex;align-items:center;gap:20px;flex-wrap:wrap;">
+<div style="display:flex;align-items:center;gap:9px;">
+<sc-if value="{{ isYellow }}" hint-placeholder-val="{{ false }}"><img src="assets/st-icon-black.png" style="width:30px;height:30px;object-fit:contain;flex:none;"></sc-if>
+<sc-if value="{{ isDark }}" hint-placeholder-val="{{ true }}"><img src="assets/st-icon-yellow.png" style="width:30px;height:30px;object-fit:contain;flex:none;"></sc-if>
+<span style="font-weight:800;font-size:16px;color:{{ zoneText }};">Social Trade</span>
+</div>
+<div style="flex:1;"></div>
+<div style="display:flex;gap:20px;flex-wrap:wrap;font-weight:600;font-size:13.5px;color:{{ zoneMute }};">
+<a href="Tentang.dc.html" style="color:{{ zoneMute }};">Tentang</a>
+<a href="#preview" style="color:{{ zoneMute }};">Konten</a>
+<a href="#paket" style="color:{{ zoneMute }};">Paket</a>
+<a href="FAQ.dc.html" style="color:{{ zoneMute }};">FAQ</a>
+<a href="#kontak" style="color:{{ zoneMute }};">Kontak</a>
+</div>
+<div onClick="{{ toggleTheme }}" style="cursor:pointer;width:44px;height:24px;border-radius:12px;background:{{ toggleTrackBg }};position:relative;flex:none;" title="Ganti tema warna">
+<div style="width:18px;height:18px;border-radius:50%;background:{{ toggleKnobBg }};position:absolute;top:3px;left:{{ toggleKnobLeft }};transition:left .18s;"></div>
+</div>
+<a href="Prototype Login Video Artikel Bayar.dc.html" style="background:transparent;border:1.5px solid {{ zoneBorder }};color:{{ zoneText }};border-radius:8px;padding:9px 16px;font-weight:700;font-size:13px;text-decoration:none;">Masuk</a>
+<a href="Prototype Login Video Artikel Bayar.dc.html" style="background:{{ btnPrimaryBg }};color:{{ btnPrimaryFg }};border:none;border-radius:8px;padding:9px 18px;font-weight:800;font-size:13px;text-decoration:none;">Mulai Gratis</a>
+</div>
+</div>
+
+<!-- HERO -->
+<div style="background:{{ zoneBackground }};">
+<div style="position:relative;overflow:hidden;">
+<sc-if value="{{ showHeroVideo }}" hint-placeholder-val="{{ true }}">
+<sc-if value="{{ isYoutube }}" hint-placeholder-val="{{ true }}">
+<div style="position:absolute;inset:0;overflow:hidden;z-index:0;">
+<iframe src="{{ heroYoutubeEmbed }}" style="position:absolute;top:50%;left:50%;width:100%;height:100%;transform:translate(-50%,-50%) scale(1.6);border:0;pointer-events:none;" allow="autoplay; encrypted-media"></iframe>
+</div>
+</sc-if>
+<sc-if value="{{ isNotYoutube }}" hint-placeholder-val="{{ false }}">
+<video ref="{{ videoRef }}" autoplay loop muted playsinline style="position:absolute;inset:0;width:100%;height:100%;object-fit:cover;z-index:0;"></video>
+</sc-if>
+<div style="position:absolute;inset:0;background:linear-gradient(180deg,rgba(20,20,15,0.55),rgba(20,20,15,0.75));z-index:0;"></div>
+</sc-if>
+<div style="position:relative;z-index:1;max-width:1200px;margin:0 auto;padding:80px 24px 0;display:flex;flex-direction:column;align-items:center;text-align:center;gap:22px;">
+<span style="font-size:12.5px;font-weight:700;color:{{ heroTag }};letter-spacing:.06em;text-transform:uppercase;">Analisis &amp; watchlist saham Indonesia</span>
+<div style="font-weight:800;font-size:clamp(30px,6vw,56px);line-height:1.1;letter-spacing:-0.015em;color:{{ zoneText }};max-width:820px;">Jangan tebak-tebak. Ikuti watchlist yang sudah dikurasi tim analis kami.</div>
+<div style="font-size:16px;color:{{ zoneMute }};line-height:1.6;max-width:560px;">Update watchlist, analisis, dan artikel premium terkirim langsung ke kamu, nggak perlu scroll forum atau nebak sinyal dari grup Telegram.</div>
+<div style="display:flex;gap:12px;flex-wrap:wrap;justify-content:center;margin-top:6px;">
+<a href="Prototype Login Video Artikel Bayar.dc.html" style="background:{{ btnPrimaryBg }};color:{{ btnPrimaryFg }};border:none;border-radius:10px;padding:15px 28px;font-weight:800;font-size:15px;text-decoration:none;">Mulai Gratis</a>
+<a href="#paket" style="background:transparent;color:{{ zoneText }};border:1.5px solid {{ zoneBorder }};border-radius:10px;padding:15px 28px;font-weight:700;font-size:15px;text-decoration:none;">Lihat Paket Pro &rarr;</a>
+</div>
+<div style="font-size:12.5px;color:{{ heroFaint }};margin-top:2px;">Gratis coba 7 hari &middot; batal kapan aja</div>
+</div>
+</div>
+
+<!-- PREVIEW STRIP -->
+<div id="preview" style="max-width:1200px;margin:0 auto;padding:56px 24px 90px;display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:20px;">
+<sc-for list="{{ contentPreview }}" as="c" hint-placeholder-count="2">
+<div style="background:{{ previewCardBg }};border:1px solid {{ previewCardBorder }};border-radius:16px;padding:22px;display:flex;flex-direction:column;gap:14px;position:relative;overflow:hidden;">
+<sc-if value="{{ c.locked }}" hint-placeholder-val="{{ true }}">
+<span style="position:absolute;top:16px;right:16px;font-size:10.5px;font-weight:800;color:#14140F;background:#FFC627;padding:3px 9px;border-radius:5px;letter-spacing:.04em;">PRO</span>
+</sc-if>
+<div style="display:flex;align-items:center;gap:16px;background:{{ previewTickerBg }};border-radius:10px;padding:12px 16px;">
+<div><div style="font-weight:800;font-size:16px;color:{{ previewTickerFg }};">{{ c.ticker }}</div><div style="font-size:11px;color:#8A8474;">{{ c.tickerName }}</div></div>
+<div style="flex:1;"></div>
+<div style="text-align:right;"><div style="font-weight:700;font-size:14px;color:{{ previewTickerFg }};">{{ c.price }}</div><div style="font-weight:700;font-size:13px;color:{{ c.changeColor }};">{{ c.change }}</div></div>
+</div>
+<div style="font-size:13.5px;color:{{ zoneMute }};line-height:1.55;">{{ c.note }}</div>
+</div>
+</sc-for>
+</div>
+</div>
+
+<!-- CREDIBILITY BADGES -->
+<div style="max-width:1200px;margin:0 auto;padding:0 24px 40px;display:flex;flex-wrap:wrap;gap:12px;justify-content:center;">
+<sc-for list="{{ credibilityBadges }}" as="b" hint-placeholder-count="3">
+<div style="display:flex;align-items:center;gap:8px;border:1px dashed #DCD6BF;border-radius:20px;padding:8px 16px;color:#8A8474;font-size:12.5px;font-weight:600;">{{ b }}<span style="font-size:9.5px;font-weight:800;color:#8A6400;background:#FFF3D0;padding:2px 7px;border-radius:10px;letter-spacing:.04em;">SOON</span></div>
+</sc-for>
+</div>
+
+<!-- VIDEO -->
+<div style="max-width:1200px;margin:0 auto;padding:80px 24px 20px;display:flex;flex-direction:column;align-items:center;gap:28px;">
+<div style="text-align:center;max-width:560px;">
+<div style="font-weight:800;font-size:clamp(24px,4vw,34px);">Kenalan sama Social Trade</div>
+<div style="font-size:15px;color:#6B6B5F;margin-top:10px;">Video singkat cara kerja watchlist dan konten member.</div>
+</div>
+<div style="width:100%;max-width:720px;aspect-ratio:16/9;position:relative;border-radius:18px;overflow:hidden;background:#14140F;">
+<image-slot id="intro-video-thumb" shape="rect" placeholder="Thumbnail video" style="width:100%;height:100%;"></image-slot>
+<div style="position:absolute;inset:0;display:flex;align-items:center;justify-content:center;pointer-events:none;">
+<div style="width:64px;height:64px;border-radius:50%;background:rgba(255,255,255,0.92);display:flex;align-items:center;justify-content:center;">
+<svg width="22" height="22" viewBox="0 0 24 24" fill="#14140F"><path d="M8 5v14l11-7z"></path></svg>
+</div>
+</div>
+</div>
+</div>
+
+<!-- ARTIKEL MEMBER -->
+<div style="max-width:1200px;margin:0 auto;padding:60px 24px;">
+<div style="text-align:center;max-width:560px;margin:0 auto 40px;">
+<div style="font-weight:800;font-size:clamp(24px,4vw,34px);">Artikel khusus member</div>
+<div style="font-size:15px;color:#6B6B5F;margin-top:10px;">Analisis mendalam yang cuma bisa dibaca setelah login.</div>
+</div>
+<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(240px,1fr));gap:20px;">
+<sc-for list="{{ memberArticles }}" as="a" hint-placeholder-count="3">
+<div style="border:1px solid #E5E0D0;border-radius:16px;overflow:hidden;background:#fff;display:flex;flex-direction:column;">
+<div style="position:relative;">
+<image-slot id="{{ a.imgId }}" shape="rect" placeholder="Thumbnail artikel" style="width:100%;height:150px;filter:blur(2px) grayscale(0.2);"></image-slot>
+<div style="position:absolute;inset:0;background:rgba(20,20,15,0.35);display:flex;align-items:center;justify-content:center;">
+<div style="width:38px;height:38px;border-radius:50%;background:rgba(255,255,255,0.95);display:flex;align-items:center;justify-content:center;">
+<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#14140F" stroke-width="2"><rect x="5" y="11" width="14" height="9" rx="2"></rect><path d="M8 11V7a4 4 0 018 0v4"></path></svg>
+</div>
+</div>
+<span style="position:absolute;top:10px;left:10px;font-size:10px;font-weight:800;color:#14140F;background:#FFC627;padding:3px 9px;border-radius:5px;letter-spacing:.04em;">MEMBER ONLY</span>
+</div>
+<div style="padding:18px 18px 20px;display:flex;flex-direction:column;gap:8px;">
+<div style="font-weight:700;font-size:15px;">{{ a.title }}</div>
+<div style="font-size:12.5px;color:#8A8474;line-height:1.5;">{{ a.excerpt }}</div>
+<a href="#" style="font-size:12.5px;font-weight:700;margin-top:4px;">Login untuk baca &rarr;</a>
+</div>
+</div>
+</sc-for>
+</div>
+</div>
+
+<!-- TESTIMONI -->
+<div style="max-width:1200px;margin:0 auto;padding:20px 24px 80px;">
+<div style="text-align:center;max-width:560px;margin:0 auto 40px;">
+<div style="font-weight:800;font-size:clamp(24px,4vw,34px);">Kata mereka soal Social Trade</div>
+</div>
+<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(240px,1fr));gap:20px;">
+<sc-for list="{{ testimonials }}" as="t" hint-placeholder-count="3">
+<div style="border:1px solid #E5E0D0;border-radius:16px;padding:24px;display:flex;flex-direction:column;gap:14px;">
+<div style="font-size:13.5px;color:#4A473C;line-height:1.6;">&ldquo;{{ t.quote }}&rdquo;</div>
+<div style="display:flex;align-items:center;gap:10px;margin-top:auto;">
+<image-slot id="{{ t.imgId }}" shape="circle" placeholder="Foto" style="width:38px;height:38px;flex:none;"></image-slot>
+<div><div style="font-weight:700;font-size:13px;">{{ t.name }}</div><div style="font-size:11.5px;color:#8A8474;">{{ t.role }}</div></div>
+</div>
+</div>
+</sc-for>
+</div>
+</div>
+
+<!-- PAKET / PRICING -->
+<div id="paket" style="max-width:1200px;margin:0 auto;padding:80px 24px;">
+<div style="text-align:center;max-width:560px;margin:0 auto 20px;">
+<div style="font-weight:800;font-size:clamp(24px,4vw,34px);">Pilih paket yang cocok buat kamu</div>
+<div style="font-size:15px;color:#6B6B5F;margin-top:10px;">Upgrade kapan aja, batal kapan aja.</div>
+</div>
+<div style="display:flex;align-items:center;justify-content:center;gap:10px;margin-bottom:36px;flex-wrap:wrap;text-align:center;">
+<span style="font-size:13px;font-weight:700;color:#14140F;">Promo harga coret berakhir dalam</span>
+<span style="font-family:monospace;font-weight:800;font-size:14px;color:#14140F;background:#FFC627;padding:5px 12px;border-radius:8px;">{{ countdownLabel }}</span>
+</div>
+<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:16px;">
+<sc-for list="{{ plans }}" as="p" hint-placeholder-count="4">
+<div style="background:{{ p.bg }};border:{{ p.border }};border-radius:18px;padding:28px 22px;display:flex;flex-direction:column;gap:16px;position:relative;">
+<sc-if value="{{ p.featured }}" hint-placeholder-val="{{ false }}">
+<span style="position:absolute;top:-12px;left:22px;font-size:10.5px;font-weight:800;color:#14140F;background:{{ accent }};padding:4px 12px;border-radius:20px;">PALING POPULER</span>
+</sc-if>
+<div style="font-weight:700;font-size:15px;color:{{ p.fg }};">{{ p.name }}</div>
+<div style="font-size:13px;color:{{ p.subFg }};text-decoration:line-through;">{{ p.strikePrice }}</div>
+<div style="display:flex;align-items:baseline;gap:6px;"><span style="font-weight:800;font-size:28px;color:{{ p.fg }};">{{ p.price }}</span></div>
+<div style="font-size:13px;color:{{ p.subFg }};line-height:1.5;">{{ p.desc }}</div>
+<div style="height:1px;background:{{ p.divider }};margin:4px 0;"></div>
+<div style="display:flex;flex-direction:column;gap:10px;">
+<sc-for list="{{ p.features }}" as="f" hint-placeholder-count="4">
+<div style="display:flex;align-items:center;gap:9px;font-size:13.5px;color:{{ p.fg }};">
+<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="{{ p.checkColor }}" stroke-width="3" style="flex:none;"><path d="M5 12l5 5L20 7"></path></svg>{{ f }}
+</div>
+</sc-for>
+</div>
+<a href="Prototype Login Video Artikel Bayar.dc.html" style="margin-top:auto;text-align:center;background:{{ p.btnBg }};color:{{ p.btnFg }};border:{{ p.btnBorder }};border-radius:10px;padding:13px;font-weight:700;font-size:14px;text-decoration:none;">{{ p.cta }}</a>
+</div>
+</sc-for>
+</div>
+</div>
+
+<!-- PERBANDINGAN PAKET -->
+<div style="max-width:1000px;margin:40px auto 0;overflow-x:auto;">
+<div style="display:grid;grid-template-columns:1.4fr 1fr 1fr 1fr 1fr;font-size:13px;min-width:560px;">
+<div style="padding:10px 12px;color:#8A8474;font-weight:700;border-bottom:1px solid #ECE7D6;">Fitur</div>
+<div style="text-align:center;padding:10px 12px;font-weight:800;border-bottom:1px solid #ECE7D6;">Silver</div>
+<div style="text-align:center;padding:10px 12px;font-weight:800;border-bottom:1px solid #ECE7D6;">Gold</div>
+<div style="text-align:center;padding:10px 12px;font-weight:800;border-bottom:1px solid #ECE7D6;">Platinum</div>
+<div style="text-align:center;padding:10px 12px;font-weight:800;border-bottom:1px solid #ECE7D6;background:#FFF3D0;">Lifetime</div>
+<sc-for list="{{ comparisonFeatures }}" as="row" hint-placeholder-count="6">
+<div style="padding:10px 12px;color:#4A473C;font-weight:600;border-bottom:1px solid #F1EEE1;">{{ row.label }}</div>
+<div style="text-align:center;padding:10px 12px;border-bottom:1px solid #F1EEE1;">{{ row.silver }}</div>
+<div style="text-align:center;padding:10px 12px;border-bottom:1px solid #F1EEE1;">{{ row.gold }}</div>
+<div style="text-align:center;padding:10px 12px;border-bottom:1px solid #F1EEE1;">{{ row.platinum }}</div>
+<div style="text-align:center;padding:10px 12px;border-bottom:1px solid #F1EEE1;background:#FFFBEF;">{{ row.lifetime }}</div>
+</sc-for>
+</div>
+</div>
+
+<!-- REFERRAL -->
+<div style="max-width:1200px;margin:0 auto;padding:0 24px 80px;">
+<div style="background:#FFF3D0;border-radius:20px;padding:36px 32px;display:flex;align-items:center;justify-content:center;gap:24px;flex-wrap:wrap;text-align:center;">
+<div style="max-width:420px;">
+<div style="font-weight:800;font-size:22px;">Pakai kode ini untuk klaim harga coret</div>
+<div style="font-size:13.5px;color:#4A3D00;margin-top:6px;line-height:1.6;">Masukkan kode di bawah saat checkout untuk klaim harga promo (coret) sebelum periode promo berakhir.</div>
+</div>
+<div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;justify-content:center;">
+<div style="font-family:monospace;font-weight:800;font-size:15px;background:#fff;border:1.5px dashed #E8C874;border-radius:10px;padding:12px 18px;">{{ referralCode }}</div>
+<button onClick="{{ copyReferral }}" style="background:#14140F;color:#FFC627;border:none;border-radius:10px;padding:12px 18px;font-weight:700;font-size:13.5px;cursor:pointer;">{{ copyLabel }}</button>
+</div>
+</div>
+</div>
+
+<!-- KONTAK & SOSIAL MEDIA -->
+<div id="kontak" style="max-width:1200px;margin:0 auto;padding:20px 24px 80px;">
+<div style="background:#14140F;border-radius:20px;padding:44px 32px;display:flex;flex-direction:column;align-items:center;text-align:center;gap:18px;">
+<div style="font-weight:800;font-size:clamp(20px,4vw,28px);color:#fff;">Ada pertanyaan? Hubungi admin kami</div>
+<div style="font-size:14px;color:#B8B296;max-width:480px;">Tim admin siap bantu soal paket, pembayaran, atau kendala akun.</div>
+<div style="display:flex;gap:12px;flex-wrap:wrap;justify-content:center;">
+<a href="https://wa.me/6281234567890" style="background:#FFC627;color:#14140F;border-radius:10px;padding:13px 24px;font-weight:700;font-size:14px;text-decoration:none;">WhatsApp Admin</a>
+<a href="mailto:admin@socialtrade.id" style="background:transparent;color:#fff;border:1.5px solid #3A3A30;border-radius:10px;padding:13px 24px;font-weight:700;font-size:14px;text-decoration:none;">admin@socialtrade.id</a>
+</div>
+<div style="height:1px;width:100%;max-width:360px;background:#2C2C22;margin:8px 0;"></div>
+<div style="font-size:13px;color:#B8B296;">Ikuti Social Trade juga di</div>
+<div style="display:flex;gap:12px;flex-wrap:wrap;justify-content:center;">
+<a href="https://stockbit.com/socialtrade" style="display:flex;align-items:center;gap:8px;background:#1D1D16;border:1px solid #2C2C22;border-radius:10px;padding:10px 18px;color:#fff;font-weight:700;font-size:13.5px;text-decoration:none;"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#FFC627" stroke-width="2" stroke-linecap="round"><path d="M4 19V13M10 19V6M16 19v-9M22 19V4"></path></svg>Stockbit &rarr;</a>
+<a href="https://t.me/socialtradevip" style="display:flex;align-items:center;gap:8px;background:#1D1D16;border:1px solid #2C2C22;border-radius:10px;padding:10px 18px;color:#fff;font-weight:700;font-size:13.5px;text-decoration:none;"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#FFC627" stroke-width="2" stroke-linejoin="round" stroke-linecap="round"><path d="M22 2 11 13"></path><path d="M22 2 15 22l-4-9-9-4z"></path></svg>Telegram &rarr;</a>
+<a href="https://www.instagram.com/socialtradevip/" style="display:flex;align-items:center;gap:8px;background:#1D1D16;border:1px solid #2C2C22;border-radius:10px;padding:10px 18px;color:#fff;font-weight:700;font-size:13.5px;text-decoration:none;"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#FFC627" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="5"></rect><circle cx="12" cy="12" r="4"></circle><circle cx="17.5" cy="6.5" r="1" fill="#FFC627" stroke="none"></circle></svg>Instagram &rarr;</a>
+</div>
+</div>
+</div>
+
+<!-- FOOTER -->
+<div style="background:{{ zoneBackground }};">
+<div style="max-width:1200px;margin:0 auto;padding:32px 24px;display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:16px;">
+<div style="display:flex;align-items:center;gap:8px;">
+<sc-if value="{{ isYellow }}" hint-placeholder-val="{{ false }}"><img src="assets/st-icon-black.png" style="width:24px;height:24px;object-fit:contain;flex:none;"></sc-if>
+<sc-if value="{{ isDark }}" hint-placeholder-val="{{ true }}"><img src="assets/st-icon-yellow.png" style="width:24px;height:24px;object-fit:contain;flex:none;"></sc-if>
+<span style="font-weight:700;font-size:13.5px;color:{{ zoneText }};">Social Trade</span>
+<span style="font-size:12px;color:{{ heroFaint }};margin-left:8px;">&copy; 2026</span>
+</div>
+<div style="display:flex;gap:20px;font-size:12.5px;color:{{ zoneMute }};">
+<a href="Privasi.dc.html" style="color:{{ zoneMute }};">Privasi</a>
+<a href="Syarat.dc.html" style="color:{{ zoneMute }};">Syarat</a>
+<a href="#kontak" style="color:{{ zoneMute }};">Kontak</a>
+</div>
+</div>
+</div>
+
+</div>
+
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props="{&quot;heroVideoUrl&quot;:{&quot;editor&quot;:&quot;text&quot;,&quot;default&quot;:&quot;&quot;,&quot;tsType&quot;:&quot;string&quot;,&quot;section&quot;:&quot;Hero background video&quot;}}">
+class Component extends DCLogic {
+  state = { theme: 'yellow', referralCopied: false, nowTick: Date.now() };
+
+  videoRef = React.createRef();
+
+  componentDidMount() {
+    this._countdownEnd = Date.now() + 47 * 3600 * 1000 + 22 * 60 * 1000;
+    this._timer = setInterval(() => this.setState({ nowTick: Date.now() }), 1000);
+    this.syncVideoSrc();
+  }
+
+  componentDidUpdate() {
+    this.syncVideoSrc();
+  }
+
+  componentWillUnmount() {
+    clearInterval(this._timer);
+  }
+
+  syncVideoSrc = () => {
+    const v = this.videoRef.current;
+    if (v && this._directVideoSrc && v.src !== this._directVideoSrc) v.src = this._directVideoSrc;
+  };
+
+  toggleTheme = () => {
+    this.setState(s => ({ theme: s.theme === 'dark' ? 'yellow' : 'dark' }));
+  };
+
+  copyReferral = () => {
+    const code = 'SOCIALTRADE-RH23';
+    if (navigator.clipboard) navigator.clipboard.writeText(code).catch(() => {});
+    this.setState({ referralCopied: true });
+    clearTimeout(this._copyTimer);
+    this._copyTimer = setTimeout(() => this.setState({ referralCopied: false }), 2000);
+  };
+
+  renderVals() {
+    const accent = '#FFC627';
+    const isYellow = this.state.theme === 'yellow';
+    const rawVideoUrl = this.props.heroVideoUrl || 'https://www.youtube.com/watch?v=vYuoECsqZy8';
+    const ytMatch = rawVideoUrl.match(/(?:youtu\.be\/|v=|embed\/)([A-Za-z0-9_-]{6,})/);
+    const ytId = ytMatch ? ytMatch[1] : null;
+    const isYoutube = !!ytId;
+    const heroVideoSrc = isYoutube ? '' : rawVideoUrl;
+    this._directVideoSrc = heroVideoSrc;
+    const heroYoutubeEmbed = isYoutube ? `https://www.youtube.com/embed/${ytId}?autoplay=1&mute=1&loop=1&playlist=${ytId}&controls=0&showinfo=0&rel=0&modestbranding=1` : '';
+    const showHeroVideo = !isYellow;
+    const zoneBg = isYellow ? '#FFC627' : '#14140F';
+    const zoneBackground = isYellow
+      ? 'radial-gradient(circle at 1px 1px, rgba(20,20,15,0.12) 1.5px, transparent 1.5px) 0 0/18px 18px, #FFC627'
+      : '#14140F';
+    const zoneText = isYellow ? '#14140F' : '#fff';
+    const zoneMute = isYellow ? '#5C4B00' : '#B8B296';
+    const zoneBorder = isYellow ? '#E8B400' : '#3A3A30';
+    const heroTag = isYellow ? '#14140F' : accent;
+    const heroFaint = isYellow ? '#7A6300' : '#6B6B5F';
+    const isDark = !isYellow;
+    const btnPrimaryBg = isYellow ? '#14140F' : accent;
+    const btnPrimaryFg = isYellow ? accent : '#14140F';
+    const previewCardBg = isYellow ? '#fff' : '#1D1D16';
+    const previewCardBorder = isYellow ? '#E8B400' : '#2C2C22';
+    const previewTickerBg = isYellow ? '#14140F' : '#14140F';
+    const previewTickerFg = '#fff';
+    const toggleTrackBg = isYellow ? '#14140F' : '#3A3A30';
+    const toggleKnobBg = accent;
+    const toggleKnobLeft = isYellow ? '23px' : '3px';
+
+    const contentPreview = [
+      { ticker: 'ANTM', tickerName: 'Aneka Tambang', price: '1.605', change: '+3.4%', changeColor: '#4ADE80', locked: false,
+        note: 'Momentum harga komoditas mendukung penguatan lanjutan minggu ini.' },
+      { ticker: 'BBCA', tickerName: 'Bank Central Asia', price: '10.250', change: '+1.2%', changeColor: '#4ADE80', locked: true,
+        note: 'Analisis lengkap sektor perbankan & target harga hanya buat member Pro.' }
+    ];
+    const memberArticles = [
+      { title: 'Target Harga ANTM Kuartal Ini', excerpt: 'Breakdown lengkap valuasi dan skenario harga untuk member Pro.', imgId: 'member-art-1' },
+      { title: 'Strategi Rotasi Sektor 2026', excerpt: 'Sektor mana yang akan jadi penggerak IHSG semester depan.', imgId: 'member-art-2' },
+      { title: 'Bedah Laporan Keuangan Bank Besar', excerpt: 'Analisis mendalam rasio keuangan bank-bank kelas kakap.', imgId: 'member-art-3' }
+    ];
+    const testimonials = [
+      { quote: 'Artikel member-nya beda kelas, analisisnya dalem tapi tetep enak dibaca.', name: 'Dimas P.', role: 'Member Gold', imgId: 'test-1' },
+      { quote: 'Watchlist-nya bikin saya nggak perlu mantau pasar sepanjang hari.', name: 'Sari W.', role: 'Member Silver', imgId: 'test-2' },
+      { quote: 'Worth it buat yang serius mau belajar & cuan jangka panjang.', name: 'Budi H.', role: 'Member Lifetime', imgId: 'test-3' }
+    ];
+    const planBase = (opts) => ({
+      bg: '#fff', border: '1px solid #E5E0D0', fg: '#14140F', subFg: '#6B6B5F', divider: '#E5E0D0',
+      checkColor: '#8A6400', btnBg: 'transparent', btnFg: '#14140F', btnBorder: '1.5px solid #14140F', featured: false,
+      ...opts
+    });
+    const plans = [
+      planBase({ name: 'Silver, 3+1 Bulan', strikePrice: 'Rp1.888K', price: 'Rp1.500K', desc: 'Stockpick, market info, dan Zoom class.', features: ['Stockpick', 'Market Info', 'Zoom Class'], cta: 'Buy Now!' }),
+      planBase({ name: 'Gold, 6+3 Bulan', strikePrice: 'Rp3.888K', price: 'Rp2.600K', desc: 'Stockpick, market info, dan Zoom class.', features: ['Stockpick', 'Market Info', 'Zoom Class'], cta: 'Buy Now!' }),
+      planBase({ name: 'Platinum, 12+6 Bulan', strikePrice: 'Rp5.888K', price: 'Rp4.200K', desc: 'Stockpick, market info, dan Zoom class.', features: ['Stockpick', 'Market Info', 'Zoom Class', 'Full Class Archive'], cta: 'Buy Now!' }),
+      planBase({ name: 'Lifetime', strikePrice: 'Rp8.888K', price: 'Rp6.500K', desc: 'Semua benefit, selamanya.', features: ['All in Benefit', 'Akses Konsul Porto', 'Full Class Archive'], cta: 'Buy Now!', featured: true, bg: '#14140F', fg: '#fff', subFg: '#B8B296', divider: '#2C2C22', checkColor: accent, btnBg: accent, btnFg: '#14140F', btnBorder: 'none' })
+    ];
+    const remainMs = Math.max(0, (this._countdownEnd || Date.now()) - this.state.nowTick);
+    const totalSec = Math.floor(remainMs / 1000);
+    const dd = Math.floor(totalSec / 86400);
+    const hh = Math.floor((totalSec % 86400) / 3600);
+    const mm = Math.floor((totalSec % 3600) / 60);
+    const ss = totalSec % 60;
+    const pad = (n) => String(n).padStart(2, '0');
+    const countdownLabel = `${dd}h ${pad(hh)}:${pad(mm)}:${pad(ss)}`;
+
+    const mark = (v) => v ? '✓' : '–';
+    const comparisonFeatures = [
+      { label: 'Durasi', silver: '3+1 Bulan', gold: '6+3 Bulan', platinum: '12+6 Bulan', lifetime: 'Selamanya' },
+      { label: 'Stockpick', silver: mark(true), gold: mark(true), platinum: mark(true), lifetime: mark(true) },
+      { label: 'Market Info', silver: mark(true), gold: mark(true), platinum: mark(true), lifetime: mark(true) },
+      { label: 'Zoom Class', silver: mark(true), gold: mark(true), platinum: mark(true), lifetime: mark(true) },
+      { label: 'Akses Konsul Porto', silver: mark(false), gold: mark(false), platinum: mark(false), lifetime: mark(true) },
+      { label: 'Full Class Archive', silver: mark(false), gold: mark(false), platinum: mark(true), lifetime: mark(true) }
+    ];
+
+    const credibilityBadges = ['Terdaftar OJK', 'Partner Bareksa', 'ISO 27001'];
+
+    return {
+      accent, contentPreview, plans, toggleTheme: this.toggleTheme,
+      isYellow, isDark, zoneBg, zoneBackground, zoneText, zoneMute, zoneBorder, heroTag, heroFaint,
+      showHeroVideo, isYoutube, isNotYoutube: !isYoutube, heroYoutubeEmbed, videoRef: this.videoRef,
+      btnPrimaryBg, btnPrimaryFg, previewCardBg, previewCardBorder, previewTickerBg, previewTickerFg,
+      toggleTrackBg, toggleKnobBg, toggleKnobLeft, memberArticles, testimonials,
+      countdownLabel, comparisonFeatures,
+      referralCode: 'SOCIALTRADE-RH23', copyLabel: this.state.referralCopied ? 'Disalin!' : 'Salin Kode', copyReferral: this.copyReferral,
+      credibilityBadges
+    };
+  }
+}
+
+</script>
+</body>
+</html>

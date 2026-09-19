@@ -1,0 +1,442 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Sora:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<style>
+body{margin:0;background:#FDFBF3;-webkit-font-smoothing:antialiased}
+a{color:#B8860B;text-decoration:none}
+a:hover{color:#8A6400;text-decoration:underline}
+*{box-sizing:border-box}
+input{outline:none;font-family:inherit}
+</style>
+<script src="./image-slot.js"></script>
+</helmet>
+
+<div style="font-family:'Sora',sans-serif;color:#1A1A1A;min-height:100vh;background:#FDFBF3;">
+
+<!-- LOGIN -->
+<sc-if value="{{ isLogin }}" hint-placeholder-val="{{ true }}">
+<div style="min-height:100vh;display:flex;align-items:center;justify-content:center;padding:24px;">
+<div style="width:100%;max-width:380px;background:#fff;border:1px solid #ECE7D6;border-radius:18px;padding:36px 32px;display:flex;flex-direction:column;gap:14px;box-shadow:0 20px 50px rgba(26,20,0,0.06);">
+<div style="display:flex;flex-direction:column;align-items:center;gap:8px;margin-bottom:6px;">
+<img src="assets/st-icon-black.png" style="width:36px;height:36px;object-fit:contain;flex:none;">
+<div style="font-weight:800;font-size:19px;">Masuk ke Social Trade</div>
+<div style="font-size:12.5px;color:#8A8474;text-align:center;">Akses watchlist, video, dan artikel member</div>
+</div>
+<div style="display:flex;flex-direction:column;gap:5px;">
+<span style="font-size:12px;font-weight:700;">Email</span>
+<input value="{{ email }}" onChange="{{ onEmailChange }}" placeholder="kamu@email.com" style="border:1px solid {{ emailBorder }};border-radius:9px;padding:11px 12px;font-size:13.5px;">
+</div>
+<div style="display:flex;flex-direction:column;gap:5px;">
+<span style="font-size:12px;font-weight:700;">Password</span>
+<input type="password" value="{{ password }}" onChange="{{ onPasswordChange }}" placeholder="&bull;&bull;&bull;&bull;&bull;&bull;&bull;&bull;" style="border:1px solid {{ passwordBorder }};border-radius:9px;padding:11px 12px;font-size:13.5px;">
+</div>
+<sc-if value="{{ loginError }}" hint-placeholder-val="{{ false }}">
+<div style="font-size:12px;color:#E0483E;font-weight:600;">Email dan password wajib diisi.</div>
+</sc-if>
+<button onClick="{{ onLogin }}" style="margin-top:6px;background:{{ accent }};border:none;border-radius:10px;padding:13px;font-weight:700;font-size:14px;cursor:pointer;">Masuk</button>
+<div style="text-align:center;font-size:12px;color:#8A8474;">Belum punya akun? <a onClick="{{ goSignup }}" style="cursor:pointer;">Daftar</a></div>
+<sc-if value="{{ isForgotSent }}" hint-placeholder-val="{{ false }}">
+<div style="text-align:center;font-size:11.5px;color:#1A9E5C;font-weight:600;">Link reset password sudah dikirim (mock) ke {{ email }}.</div>
+</sc-if>
+<div onClick="{{ onForgotPassword }}" style="text-align:center;font-size:12px;color:#8A8474;cursor:pointer;">Lupa password?</div>
+<a href="Landing Page v2.dc.html" style="text-align:center;font-size:12px;color:#8A8474;">&larr; Kembali ke landing page</a>
+</div>
+</div>
+</sc-if>
+
+<!-- SIGNUP -->
+<sc-if value="{{ isSignup }}" hint-placeholder-val="{{ false }}">
+<div style="min-height:100vh;display:flex;align-items:center;justify-content:center;padding:24px;">
+<div style="width:100%;max-width:380px;background:#fff;border:1px solid #ECE7D6;border-radius:18px;padding:36px 32px;display:flex;flex-direction:column;gap:14px;box-shadow:0 20px 50px rgba(26,20,0,0.06);">
+<div style="display:flex;flex-direction:column;align-items:center;gap:8px;margin-bottom:6px;">
+<img src="assets/st-icon-black.png" style="width:36px;height:36px;object-fit:contain;flex:none;">
+<div style="font-weight:800;font-size:19px;">Daftar Akun Baru</div>
+<div style="font-size:12.5px;color:#8A8474;text-align:center;">Mulai gratis, upgrade kapan aja</div>
+</div>
+<div style="display:flex;flex-direction:column;gap:5px;">
+<span style="font-size:12px;font-weight:700;">Nama</span>
+<input value="{{ signupName }}" onChange="{{ onSignupNameChange }}" placeholder="Nama kamu" style="border:1px solid #ECE7D6;border-radius:9px;padding:11px 12px;font-size:13.5px;">
+</div>
+<div style="display:flex;flex-direction:column;gap:5px;">
+<span style="font-size:12px;font-weight:700;">Email</span>
+<input value="{{ email }}" onChange="{{ onEmailChange }}" placeholder="kamu@email.com" style="border:1px solid {{ emailBorder }};border-radius:9px;padding:11px 12px;font-size:13.5px;">
+</div>
+<div style="display:flex;flex-direction:column;gap:5px;">
+<span style="font-size:12px;font-weight:700;">Password</span>
+<input type="password" value="{{ password }}" onChange="{{ onPasswordChange }}" placeholder="&bull;&bull;&bull;&bull;&bull;&bull;&bull;&bull;" style="border:1px solid {{ passwordBorder }};border-radius:9px;padding:11px 12px;font-size:13.5px;">
+</div>
+<sc-if value="{{ loginError }}" hint-placeholder-val="{{ false }}">
+<div style="font-size:12px;color:#E0483E;font-weight:600;">Semua kolom wajib diisi.</div>
+</sc-if>
+<button onClick="{{ onSignup }}" style="margin-top:6px;background:{{ accent }};border:none;border-radius:10px;padding:13px;font-weight:700;font-size:14px;cursor:pointer;">Daftar</button>
+<div style="text-align:center;font-size:12px;color:#8A8474;">Sudah punya akun? <a onClick="{{ goLogin }}" style="cursor:pointer;">Masuk</a></div>
+</div>
+</div>
+</sc-if>
+
+<!-- PILIH PAKET (SETELAH DAFTAR) -->
+<sc-if value="{{ isChoosePlan }}" hint-placeholder-val="{{ false }}">
+<div style="min-height:100vh;display:flex;align-items:center;justify-content:center;padding:24px;">
+<div style="width:100%;max-width:520px;background:#fff;border:1px solid #ECE7D6;border-radius:18px;padding:36px 32px;display:flex;flex-direction:column;gap:18px;box-shadow:0 20px 50px rgba(26,20,0,0.06);">
+<div style="display:flex;flex-direction:column;gap:6px;">
+<div style="font-weight:800;font-size:19px;">Pilih paket kamu</div>
+<div style="font-size:12.5px;color:#8A8474;">Tier akun kamu ditentukan dari paket yang kamu bayar. Ada pertanyaan? <a href="Landing Page v2.dc.html#kontak" style="color:#8A6400;font-weight:700;">Hubungi admin dulu</a>.</div>
+</div>
+<div style="display:flex;flex-direction:column;gap:10px;">
+<sc-for list="{{ plans }}" as="p" hint-placeholder-count="4">
+<div onClick="{{ p.onSelect }}" style="cursor:pointer;display:flex;align-items:center;justify-content:space-between;gap:12px;border:1.5px solid #ECE7D6;border-radius:10px;padding:14px 16px;">
+<div><div style="font-size:14px;font-weight:700;">{{ p.name }}</div><div style="font-size:12px;color:#8A8474;">{{ p.desc }}</div></div>
+<div style="font-weight:800;font-size:15px;flex:none;">{{ p.price }}</div>
+</div>
+</sc-for>
+</div>
+</div>
+</div>
+</sc-if>
+
+<!-- APP SHELL (post-login) -->
+<sc-if value="{{ isAppShell }}" hint-placeholder-val="{{ false }}">
+<div style="display:flex;flex-direction:column;min-height:100vh;">
+<div style="background:#fff;border-bottom:1px solid #ECE7D6;">
+<div style="max-width:1100px;margin:0 auto;padding:14px 24px;display:flex;align-items:center;gap:24px;">
+<a href="Landing Page v2.dc.html" style="display:flex;align-items:center;gap:8px;flex:none;text-decoration:none;color:inherit;">
+<img src="assets/st-icon-yellow.png" style="width:30px;height:30px;object-fit:contain;flex:none;">
+<span style="font-weight:800;font-size:16px;">Social Trade</span>
+</a>
+<div style="display:flex;gap:6px;">
+<div onClick="{{ goHome }}" style="cursor:pointer;padding:8px 14px;border-radius:8px;font-weight:700;font-size:13.5px;background:{{ tabBgHome }};color:{{ tabFgHome }};">Beranda</div>
+<div onClick="{{ goVideoList }}" style="cursor:pointer;padding:8px 14px;border-radius:8px;font-weight:700;font-size:13.5px;background:{{ tabBgVideo }};color:{{ tabFgVideo }};">Video</div>
+<div onClick="{{ goArticleList }}" style="cursor:pointer;padding:8px 14px;border-radius:8px;font-weight:700;font-size:13.5px;background:{{ tabBgArticle }};color:{{ tabFgArticle }};">Artikel</div>
+<div onClick="{{ goPricing }}" style="cursor:pointer;padding:8px 14px;border-radius:8px;font-weight:700;font-size:13.5px;background:{{ tabBgPricing }};color:{{ tabFgPricing }};">Upgrade</div>
+</div>
+<div style="flex:1;"></div>
+<span style="font-size:11.5px;font-weight:700;color:#8A6400;background:{{ accentPale }};padding:4px 11px;border-radius:20px;">Member {{ tierLabel }}</span>
+<a href="Admin.dc.html" style="font-size:12px;font-weight:700;color:#8A8474;flex:none;">Admin &rarr;</a>
+<div style="width:32px;height:32px;border-radius:50%;background:#1A1A1A;color:{{ accent }};display:flex;align-items:center;justify-content:center;font-weight:700;font-size:12.5px;">RH</div>
+</div>
+</div>
+
+<div style="flex:1;max-width:1100px;margin:0 auto;width:100%;padding:32px 24px 60px;">
+
+<!-- HOME -->
+<sc-if value="{{ isHome }}" hint-placeholder-val="{{ false }}">
+<div style="display:flex;flex-direction:column;gap:24px;">
+<div style="background:#1A1A1A;border-radius:16px;padding:28px 30px;display:flex;align-items:center;justify-content:space-between;gap:20px;flex-wrap:wrap;">
+<div><div style="font-weight:800;font-size:20px;color:#fff;">Halo, Rangga &#128075;</div><div style="font-size:13px;color:#B8B296;margin-top:4px;">Kamu member {{ tierLabel }}. {{ upgradeHint }}</div></div>
+<sc-if value="{{ isFree }}" hint-placeholder-val="{{ true }}">
+<button onClick="{{ goPricing }}" style="background:{{ accent }};border:none;border-radius:10px;padding:11px 20px;font-weight:700;font-size:13.5px;cursor:pointer;flex:none;">Upgrade Sekarang</button>
+</sc-if>
+</div>
+<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:20px;">
+<div onClick="{{ goVideoList }}" style="cursor:pointer;background:#fff;border:1px solid #ECE7D6;border-radius:16px;padding:24px;display:flex;flex-direction:column;gap:8px;">
+<div style="font-weight:700;font-size:16px;">&#127916; Video Edukasi</div>
+<div style="font-size:13px;color:#8A8474;">{{ videoCount }} video &middot; strategi &amp; analisis</div>
+</div>
+<div onClick="{{ goArticleList }}" style="cursor:pointer;background:#fff;border:1px solid #ECE7D6;border-radius:16px;padding:24px;display:flex;flex-direction:column;gap:8px;">
+<div style="font-weight:700;font-size:16px;">&#128220; Artikel Member</div>
+<div style="font-size:13px;color:#8A8474;">{{ articleCount }} artikel &middot; update watchlist &amp; analisis</div>
+</div>
+</div>
+</div>
+</sc-if>
+
+<!-- VIDEO LIST -->
+<sc-if value="{{ isVideoList }}" hint-placeholder-val="{{ false }}">
+<div style="display:flex;flex-direction:column;gap:20px;">
+<div style="font-weight:800;font-size:22px;">Video Edukasi</div>
+<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:18px;">
+<sc-for list="{{ videos }}" as="v" hint-placeholder-count="3">
+<div onClick="{{ v.onOpen }}" style="cursor:pointer;background:#fff;border:1px solid #ECE7D6;border-radius:14px;overflow:hidden;">
+<div style="position:relative;aspect-ratio:16/9;">
+<image-slot id="{{ v.imgId }}" shape="rect" placeholder="Thumbnail video" style="width:100%;height:100%;"></image-slot>
+<div style="position:absolute;inset:0;display:flex;align-items:center;justify-content:center;background:rgba(0,0,0,0.15);">
+<div style="width:42px;height:42px;border-radius:50%;background:rgba(255,255,255,0.95);display:flex;align-items:center;justify-content:center;"><svg width="16" height="16" viewBox="0 0 24 24" fill="#14140F"><path d="M8 5v14l11-7z"></path></svg></div>
+</div>
+<sc-if value="{{ v.locked }}" hint-placeholder-val="{{ false }}"><span style="position:absolute;top:8px;right:8px;font-size:10px;font-weight:800;color:#14140F;background:{{ accent }};padding:3px 8px;border-radius:5px;">{{ v.requiredLabel }}</span></sc-if>
+</div>
+<div style="padding:14px;"><div style="font-weight:700;font-size:14px;">{{ v.title }}</div><div style="font-size:12px;color:#8A8474;margin-top:3px;">{{ v.duration }}</div></div>
+</div>
+</sc-for>
+</div>
+</div>
+</sc-if>
+
+<!-- VIDEO PLAYER -->
+<sc-if value="{{ isVideoPlayer }}" hint-placeholder-val="{{ false }}">
+<div style="display:flex;flex-direction:column;gap:18px;max-width:760px;">
+<div onClick="{{ goVideoList }}" style="cursor:pointer;font-size:13px;font-weight:700;color:#8A6400;">&larr; Kembali ke Video</div>
+<div style="position:relative;border-radius:14px;overflow:hidden;aspect-ratio:16/9;background:#14140F;">
+<image-slot id="{{ selectedVideo.imgId }}" shape="rect" placeholder="Video player" style="width:100%;height:100%;"></image-slot>
+<div onClick="{{ togglePlaying }}" style="position:absolute;inset:0;display:flex;align-items:center;justify-content:center;cursor:pointer;">
+<div style="width:60px;height:60px;border-radius:50%;background:rgba(255,255,255,0.95);display:flex;align-items:center;justify-content:center;">
+<sc-if value="{{ isPlaying }}" hint-placeholder-val="{{ false }}"><svg width="20" height="20" viewBox="0 0 24 24" fill="#14140F"><rect x="6" y="5" width="4" height="14"></rect><rect x="14" y="5" width="4" height="14"></rect></svg></sc-if>
+<sc-if value="{{ isNotPlaying }}" hint-placeholder-val="{{ true }}"><svg width="20" height="20" viewBox="0 0 24 24" fill="#14140F"><path d="M8 5v14l11-7z"></path></svg></sc-if>
+</div>
+</div>
+<div style="position:absolute;bottom:0;left:0;right:0;height:4px;background:rgba(255,255,255,0.25);"><div style="height:100%;width:{{ progressPct }};background:{{ accent }};transition:width .2s;"></div></div>
+</div>
+<div style="font-weight:800;font-size:19px;">{{ selectedVideo.title }}</div>
+<div style="font-size:13.5px;color:#4A473C;line-height:1.6;">{{ selectedVideo.desc }}</div>
+</div>
+</sc-if>
+
+<!-- ARTICLE LIST -->
+<sc-if value="{{ isArticleList }}" hint-placeholder-val="{{ false }}">
+<div style="display:flex;flex-direction:column;gap:16px;">
+<div style="font-weight:800;font-size:22px;">Artikel Member</div>
+<sc-for list="{{ articles }}" as="a" hint-placeholder-count="4">
+<div onClick="{{ a.onOpen }}" style="cursor:pointer;background:#fff;border:1px solid #ECE7D6;border-radius:14px;padding:18px 20px;display:flex;gap:16px;align-items:center;">
+<image-slot id="{{ a.imgId }}" shape="rounded" radius="10" placeholder="Thumbnail" style="width:100px;height:76px;flex:none;"></image-slot>
+<div style="flex:1;display:flex;flex-direction:column;gap:5px;">
+<div style="font-weight:700;font-size:15px;">{{ a.title }}</div>
+<div style="font-size:12.5px;color:#8A8474;line-height:1.45;">{{ a.excerpt }}</div>
+</div>
+<sc-if value="{{ a.locked }}" hint-placeholder-val="{{ false }}">
+<span style="font-size:10.5px;font-weight:800;color:#14140F;background:{{ accent }};padding:4px 10px;border-radius:5px;flex:none;">{{ a.requiredLabel }}</span>
+</sc-if>
+</div>
+</sc-for>
+</div>
+</sc-if>
+
+<!-- ARTICLE READ -->
+<sc-if value="{{ isArticleRead }}" hint-placeholder-val="{{ false }}">
+<div style="display:flex;flex-direction:column;gap:16px;max-width:680px;">
+<div onClick="{{ goArticleList }}" style="cursor:pointer;font-size:13px;font-weight:700;color:#8A6400;">&larr; Kembali ke Artikel</div>
+<div style="font-weight:800;font-size:24px;line-height:1.25;">{{ selectedArticle.title }}</div>
+<div style="font-size:12.5px;color:#8A8474;">Tim Social Trade &middot; Admin</div>
+<div style="font-size:14.5px;color:#4A473C;line-height:1.75;">{{ selectedArticle.body }}</div>
+</div>
+</sc-if>
+
+<!-- PRICING -->
+<sc-if value="{{ isPricing }}" hint-placeholder-val="{{ false }}">
+<div style="display:flex;flex-direction:column;gap:20px;">
+<div style="text-align:center;"><div style="font-weight:800;font-size:24px;">Upgrade akun kamu</div><div style="font-size:13.5px;color:#8A8474;margin-top:6px;">Buka semua video &amp; artikel member.</div></div>
+<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:14px;">
+<sc-for list="{{ plans }}" as="p" hint-placeholder-count="4">
+<div style="background:{{ p.bg }};border:{{ p.border }};border-radius:16px;padding:22px 18px;display:flex;flex-direction:column;gap:12px;position:relative;">
+<sc-if value="{{ p.featured }}" hint-placeholder-val="{{ false }}"><span style="position:absolute;top:-10px;left:18px;font-size:10px;font-weight:800;color:#14140F;background:{{ accent }};padding:3px 10px;border-radius:20px;">POPULER</span></sc-if>
+<div style="font-weight:700;font-size:14px;color:{{ p.fg }};">{{ p.name }}</div>
+<div style="font-weight:800;font-size:24px;color:{{ p.fg }};">{{ p.price }}</div>
+<div style="font-size:12px;color:{{ p.subFg }};">{{ p.desc }}</div>
+<button onClick="{{ p.onSelect }}" style="margin-top:auto;background:{{ p.btnBg }};color:{{ p.btnFg }};border:{{ p.btnBorder }};border-radius:9px;padding:11px;font-weight:700;font-size:13px;cursor:pointer;">Pilih</button>
+</div>
+</sc-for>
+</div>
+</div>
+</sc-if>
+
+<!-- CHECKOUT -->
+<sc-if value="{{ isCheckout }}" hint-placeholder-val="{{ false }}">
+<div style="display:flex;flex-direction:column;gap:20px;max-width:440px;">
+<div onClick="{{ goPricing }}" style="cursor:pointer;font-size:13px;font-weight:700;color:#8A6400;">&larr; Ganti paket</div>
+<div style="font-weight:800;font-size:20px;">Checkout</div>
+<div style="background:#fff;border:1px solid #ECE7D6;border-radius:14px;padding:18px 20px;display:flex;align-items:center;justify-content:space-between;">
+<div><div style="font-weight:700;font-size:14.5px;">{{ selectedPlan.name }}</div><div style="font-size:12px;color:#8A8474;">{{ selectedPlan.desc }}</div></div>
+<div style="font-weight:800;font-size:18px;">{{ selectedPlan.price }}</div>
+</div>
+<div style="display:flex;flex-direction:column;gap:6px;">
+<div style="font-size:12.5px;font-weight:700;color:#8A8474;">KODE REFERRAL &mdash; UNTUK KLAIM HARGA PROMO (CORET)</div>
+<div style="display:flex;gap:8px;">
+<input value="{{ referralInput }}" onChange="{{ onReferralChange }}" placeholder="Contoh: SOCIALTRADE-RH23" style="flex:1;border:1px solid #ECE7D6;border-radius:9px;padding:10px 12px;font-size:13px;">
+<button onClick="{{ onApplyReferral }}" style="background:#1A1A1A;color:{{ accent }};border:none;border-radius:9px;padding:10px 16px;font-weight:700;font-size:12.5px;cursor:pointer;">Terapkan</button>
+</div>
+<sc-if value="{{ referralApplied }}" hint-placeholder-val="{{ false }}"><div style="font-size:12px;color:#1A9E5C;font-weight:600;">Kode valid, harga promo diterapkan.</div></sc-if>
+<sc-if value="{{ countdownLabel }}" hint-placeholder-val="{{ false }}"><div style="font-size:11.5px;color:#8A8474;">Promo harga coret berakhir dalam {{ countdownLabel }}</div></sc-if>
+</div>
+<div style="display:flex;flex-direction:column;gap:8px;">
+<div style="font-size:12.5px;font-weight:700;color:#8A8474;">METODE PEMBAYARAN</div>
+<sc-for list="{{ paymentMethods }}" as="m" hint-placeholder-count="3">
+<div onClick="{{ m.onSelect }}" style="cursor:pointer;display:flex;align-items:center;gap:12px;border:1.5px solid {{ m.borderColor }};background:{{ m.bg }};border-radius:10px;padding:12px 14px;">
+<div style="width:18px;height:18px;border-radius:50%;border:2px solid {{ m.dotBorder }};display:flex;align-items:center;justify-content:center;flex:none;"><sc-if value="{{ m.selected }}" hint-placeholder-val="{{ false }}"><div style="width:9px;height:9px;border-radius:50%;background:{{ accent }};"></div></sc-if></div>
+<span style="font-size:13.5px;font-weight:600;">{{ m.label }}</span>
+</div>
+</sc-for>
+</div>
+<button onClick="{{ onPay }}" style="margin-top:6px;background:{{ accent }};border:none;border-radius:10px;padding:14px;font-weight:700;font-size:14.5px;cursor:pointer;">Bayar Sekarang</button>
+</div>
+</sc-if>
+
+<!-- SUCCESS -->
+<sc-if value="{{ isSuccess }}" hint-placeholder-val="{{ false }}">
+<div style="display:flex;flex-direction:column;align-items:center;text-align:center;gap:14px;max-width:400px;margin:40px auto;">
+<div style="width:64px;height:64px;border-radius:50%;background:#DFF3E6;display:flex;align-items:center;justify-content:center;"><svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="#1A9E5C" stroke-width="3"><path d="M5 12l5 5L20 7"></path></svg></div>
+<div style="font-weight:800;font-size:21px;">Pembayaran berhasil!</div>
+<div style="font-size:14px;color:#4A473C;line-height:1.6;">Akun kamu sekarang member <b>{{ tierLabel }}</b>. Semua video dan artikel yang terkunci sudah bisa diakses.</div>
+<button onClick="{{ goHome }}" style="margin-top:8px;background:{{ accent }};border:none;border-radius:10px;padding:13px 26px;font-weight:700;font-size:14px;cursor:pointer;">Kembali ke Beranda</button>
+</div>
+</sc-if>
+
+</div>
+</div>
+</sc-if>
+
+</div>
+
+</x-dc>
+<script type="text/x-dc" data-dc-script>
+const TIER_RANK = { free: 0, silver: 1, gold: 2, platinum: 3, lifetime: 4 };
+const TIER_LABEL = { free: 'Gratis', silver: 'Silver', gold: 'Gold', platinum: 'Platinum', lifetime: 'Lifetime' };
+
+class Component extends DCLogic {
+  state = {
+    screen: 'login',
+    email: '', password: '', signupName: '', loginError: false, forgotSent: false,
+    notifPrefs: { watchlist: true, articles: true, price_alert: false },
+    tier: 'free',
+    selectedVideoId: null, selectedArticleId: null, selectedPlanId: null,
+    isPlaying: false, paymentMethod: 'transfer',
+    referralInput: '', referralApplied: false, nowTick: Date.now()
+  };
+
+  componentDidMount() {
+    this._countdownEnd = Date.now() + 47 * 3600 * 1000 + 22 * 60 * 1000;
+    this._timer = setInterval(() => this.setState({ nowTick: Date.now() }), 1000);
+  }
+
+  componentWillUnmount() {
+    clearInterval(this._timer);
+  }
+
+  onEmailChange = (e) => this.setState({ email: e.target.value, loginError: false });
+  onPasswordChange = (e) => this.setState({ password: e.target.value, loginError: false });
+  onSignupNameChange = (e) => this.setState({ signupName: e.target.value, loginError: false });
+  onLogin = () => {
+    if (!this.state.email || !this.state.password) { this.setState({ loginError: true }); return; }
+    this.setState({ screen: 'home' });
+  };
+  goSignup = () => this.setState({ screen: 'signup', loginError: false });
+  onForgotPassword = () => { if (this.state.email) this.setState({ forgotSent: true }); };
+  goLogin = () => this.setState({ screen: 'login', loginError: false });
+  onSignup = () => {
+    if (!this.state.signupName || !this.state.email || !this.state.password) { this.setState({ loginError: true }); return; }
+    this.setState({ screen: 'choose-plan' });
+  };
+  onReferralChange = (e) => this.setState({ referralInput: e.target.value });
+  onApplyReferral = () => { if (this.state.referralInput.trim()) this.setState({ referralApplied: true }); };
+  goTo = (screen) => this.setState({ screen });
+  togglePlaying = () => this.setState(s => ({ isPlaying: !s.isPlaying }));
+  openVideo = (id) => this.setState({ selectedVideoId: id, screen: 'video-player', isPlaying: false });
+  openArticle = (id) => this.setState({ selectedArticleId: id, screen: 'article-read' });
+  selectPlan = (id) => this.setState({ selectedPlanId: id, screen: 'checkout' });
+  selectPayment = (m) => this.setState({ paymentMethod: m });
+  onPay = () => {
+    const plan = this.plansData().find(p => p.id === this.state.selectedPlanId);
+    this.setState({ tier: plan ? plan.tierId : this.state.tier, screen: 'success' });
+  };
+
+  plansData() {
+    return [
+      { id: 'silver', tierId: 'silver', name: 'Silver, 3+1 Bulan', price: 'Rp1.500K', desc: 'Stockpick, Market Info, Zoom Class' },
+      { id: 'gold', tierId: 'gold', name: 'Gold, 6+3 Bulan', price: 'Rp2.600K', desc: 'Stockpick, Market Info, Zoom Class' },
+      { id: 'platinum', tierId: 'platinum', name: 'Platinum, 12+6 Bulan', price: 'Rp4.200K', desc: 'Stockpick, Market Info, Zoom Class' },
+      { id: 'lifetime', tierId: 'lifetime', name: 'Lifetime', price: 'Rp6.500K', desc: 'All in Benefit, selamanya', featured: true }
+    ];
+  }
+
+  renderVals() {
+    const accent = '#FFC627';
+    const accentPale = '#FFF3D0';
+    const s = this.state;
+    const myRank = TIER_RANK[s.tier];
+    const tierLabel = TIER_LABEL[s.tier];
+
+    const videosRaw = [
+      { id: 'v1', title: 'Cara Baca Candlestick untuk Pemula', duration: '8 menit', imgId: 'video-1', requiredTier: 'free', desc: 'Pengenalan dasar membaca pola candlestick sebelum masuk ke analisis teknikal lanjutan.' },
+      { id: 'v2', title: 'Strategi Swing Trading ala Social Trade', duration: '14 menit', imgId: 'video-2', requiredTier: 'silver', desc: 'Strategi entry dan exit untuk swing trading jangka pendek-menengah.' },
+      { id: 'v3', title: 'Bedah Laporan Keuangan Emiten Bank', duration: '21 menit', imgId: 'video-3', requiredTier: 'gold', desc: 'Analisis mendalam rasio keuangan emiten perbankan besar di IHSG.' }
+    ];
+    const videos = videosRaw.map(v => {
+      const locked = TIER_RANK[v.requiredTier] > myRank;
+      return { ...v, locked, requiredLabel: TIER_LABEL[v.requiredTier].toUpperCase(), onOpen: locked ? this.goTo.bind(this, 'pricing') : this.openVideo.bind(this, v.id) };
+    });
+    const selectedVideoRaw = videosRaw.find(v => v.id === s.selectedVideoId) || videosRaw[0];
+    const selectedVideo = selectedVideoRaw;
+
+    const articlesRaw = [
+      { id: 'a1', title: 'Cara Baca Laporan Keuangan Tanpa Pusing', excerpt: 'Panduan singkat membaca neraca dan laba rugi untuk pemula.', imgId: 'art-1', requiredTier: 'free',
+        body: 'Membaca laporan keuangan nggak perlu bikin pusing. Fokus dulu ke tiga hal: neraca, laba rugi, dan arus kas. Neraca menunjukkan aset dan utang perusahaan pada satu titik waktu, laba rugi menunjukkan performa selama periode tertentu, dan arus kas menunjukkan ke mana uang benar-benar mengalir.' },
+      { id: 'a2', title: 'Target Harga ANTM Kuartal Ini', excerpt: 'Breakdown valuasi dan skenario harga untuk member Pro.', imgId: 'art-2', requiredTier: 'silver',
+        body: 'Berdasarkan momentum harga komoditas dan rencana ekspansi produksi, kami melihat ANTM punya ruang penguatan lanjutan. Skenario konservatif menempatkan target di level psikologis berikutnya, sementara skenario optimis mempertimbangkan katalis dari kenaikan harga nikel global.' },
+      { id: 'a3', title: 'Strategi Rotasi Sektor 2026', excerpt: 'Sektor mana yang akan jadi penggerak IHSG semester depan.', imgId: 'art-3', requiredTier: 'gold',
+        body: 'Rotasi sektor terjadi ketika dana mulai bergeser dari sektor yang sudah naik tinggi ke sektor yang masih tertinggal. Tahun ini kami melihat potensi rotasi dari sektor komoditas menuju sektor konsumer dan perbankan seiring ekspektasi penurunan suku bunga.' },
+      { id: 'a4', title: 'Bedah Laporan Keuangan Bank Besar', excerpt: 'Analisis rasio keuangan bank-bank kelas kakap.', imgId: 'art-4', requiredTier: 'platinum',
+        body: 'Rasio NIM, LDR, dan NPL jadi tiga indikator utama saat menilai kesehatan bank. Bank dengan NIM stabil di atas rata-rata industri biasanya punya kemampuan mempertahankan margin meski suku bunga acuan berubah.' }
+    ];
+    const articles = articlesRaw.map(a => {
+      const locked = TIER_RANK[a.requiredTier] > myRank;
+      return { ...a, locked, requiredLabel: TIER_LABEL[a.requiredTier].toUpperCase(), onOpen: locked ? this.goTo.bind(this, 'pricing') : this.openArticle.bind(this, a.id) };
+    });
+    const selectedArticle = articlesRaw.find(a => a.id === s.selectedArticleId) || articlesRaw[0];
+
+    const plans = this.plansData().map(p => ({
+      ...p,
+      bg: p.featured ? '#1A1A1A' : '#fff', fg: p.featured ? '#fff' : '#1A1A1A', subFg: p.featured ? '#B8B296' : '#8A8474',
+      border: p.featured ? 'none' : '1px solid #ECE7D6',
+      btnBg: p.featured ? accent : 'transparent', btnFg: p.featured ? '#1A1A1A' : '#1A1A1A', btnBorder: p.featured ? 'none' : '1.5px solid #1A1A1A',
+      onSelect: this.selectPlan.bind(this, p.id)
+    }));
+    const selectedPlan = plans.find(p => p.id === s.selectedPlanId) || plans[0];
+
+    const paymentMethodsRaw = [ { id: 'transfer', label: 'Transfer Bank' }, { id: 'qris', label: 'QRIS' }, { id: 'ewallet', label: 'E-Wallet' } ];
+    const paymentMethods = paymentMethodsRaw.map(m => {
+      const selected = s.paymentMethod === m.id;
+      return { ...m, selected, borderColor: selected ? '#E8C874' : '#ECE7D6', dotBorder: selected ? accent : '#DDD5B8', bg: selected ? accentPale : '#fff', onSelect: this.selectPayment.bind(this, m.id) };
+    });
+
+    const tabActive = (active) => ({ bg: active ? '#1A1A1A' : 'transparent', fg: active ? accent : '#4A473C' });
+    const home = tabActive(s.screen === 'home');
+    const video = tabActive(s.screen === 'video-list' || s.screen === 'video-player');
+    const article = tabActive(s.screen === 'article-list' || s.screen === 'article-read');
+    const pricing = tabActive(s.screen === 'pricing' || s.screen === 'checkout' || s.screen === 'success');
+
+    return {
+      accent, accentPale,
+      isLogin: s.screen === 'login', isSignup: s.screen === 'signup', isChoosePlan: s.screen === 'choose-plan',
+      isAppShell: !['login', 'signup', 'choose-plan'].includes(s.screen),
+      email: s.email, password: s.password, signupName: s.signupName, loginError: s.loginError,
+      emailBorder: s.loginError && !s.email ? '#E0483E' : '#ECE7D6', passwordBorder: s.loginError && !s.password ? '#E0483E' : '#ECE7D6',
+      onEmailChange: this.onEmailChange, onPasswordChange: this.onPasswordChange, onSignupNameChange: this.onSignupNameChange,
+      onLogin: this.onLogin, onSignup: this.onSignup, goSignup: this.goSignup, goLogin: this.goLogin,
+      onForgotPassword: this.onForgotPassword, isForgotSent: s.forgotSent,
+      isHome: s.screen === 'home', isVideoList: s.screen === 'video-list', isVideoPlayer: s.screen === 'video-player',
+      isArticleList: s.screen === 'article-list', isArticleRead: s.screen === 'article-read',
+      isPricing: s.screen === 'pricing', isCheckout: s.screen === 'checkout', isSuccess: s.screen === 'success',
+      goHome: this.goTo.bind(this, 'home'), goVideoList: this.goTo.bind(this, 'video-list'), goArticleList: this.goTo.bind(this, 'article-list'), goPricing: this.goTo.bind(this, 'pricing'),
+      tabBgHome: home.bg, tabFgHome: home.fg, tabBgVideo: video.bg, tabFgVideo: video.fg, tabBgArticle: article.bg, tabFgArticle: article.fg, tabBgPricing: pricing.bg, tabFgPricing: pricing.fg,
+      tierLabel, isFree: s.tier === 'free', upgradeHint: s.tier === 'free' ? 'Upgrade untuk buka semua video & artikel.' : 'Semua konten member sudah kebuka.',
+      videoCount: videos.length, articleCount: articles.length,
+      videos, selectedVideo, isPlaying: s.isPlaying, isNotPlaying: !s.isPlaying, togglePlaying: this.togglePlaying,
+      progressPct: s.isPlaying ? '38%' : '0%',
+      articles, selectedArticle,
+      plans, selectedPlan, paymentMethods, onPay: this.onPay,
+      countdownLabel: this.countdownLabel(), referralInput: s.referralInput, referralApplied: s.referralApplied,
+      onReferralChange: this.onReferralChange, onApplyReferral: this.onApplyReferral
+    };
+  }
+
+  countdownLabel() {
+    const remainMs = Math.max(0, (this._countdownEnd || Date.now()) - this.state.nowTick);
+    const totalSec = Math.floor(remainMs / 1000);
+    const dd = Math.floor(totalSec / 86400);
+    const hh = Math.floor((totalSec % 86400) / 3600);
+    const mm = Math.floor((totalSec % 3600) / 60);
+    const ss = totalSec % 60;
+    const pad = (n) => String(n).padStart(2, '0');
+    return `${dd}h ${pad(hh)}:${pad(mm)}:${pad(ss)}`;
+  }
+}
+
+</script>
+</body>
+</html>

@@ -1,0 +1,192 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Sora:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<style>
+body{margin:0;background:#F4F2E8;-webkit-font-smoothing:antialiased}
+*{box-sizing:border-box}
+input,textarea,select{outline:none;font-family:inherit}
+</style>
+</helmet>
+
+<div style="font-family:'Sora',sans-serif;color:#1A1A1A;min-height:100vh;">
+
+<div style="background:#1A1A1A;padding:16px 24px;display:flex;align-items:center;gap:16px;">
+<a href="Landing Page v2.dc.html" style="display:flex;align-items:center;gap:10px;text-decoration:none;">
+<img src="assets/st-icon-yellow.png" style="width:26px;height:26px;object-fit:contain;flex:none;">
+<span style="font-weight:800;font-size:15px;color:#fff;">Social Trade &middot; Admin Panel</span>
+</a>
+<div style="flex:1;"></div>
+<a href="Prototype Login Video Artikel Bayar.dc.html" style="font-size:12.5px;font-weight:700;color:#B8B296;text-decoration:none;">&larr; Kembali ke App</a>
+</div>
+
+<div style="max-width:900px;margin:0 auto;padding:36px 24px 60px;display:flex;flex-direction:column;gap:28px;">
+
+<div>
+<div style="font-weight:800;font-size:22px;">Push konten baru</div>
+<div style="font-size:13px;color:#8A8474;margin-top:4px;">Konten yang dikirim langsung muncul di feed member dan memicu notifikasi.</div>
+</div>
+
+<div style="display:flex;gap:8px;flex-wrap:wrap;">
+<div onClick="{{ setTabWatchlist }}" style="cursor:pointer;padding:9px 16px;border-radius:8px;font-weight:700;font-size:13px;background:{{ tabWatchlistBg }};color:{{ tabWatchlistFg }};">Watchlist</div>
+<div onClick="{{ setTabArticle }}" style="cursor:pointer;padding:9px 16px;border-radius:8px;font-weight:700;font-size:13px;background:{{ tabArticleBg }};color:{{ tabArticleFg }};">Artikel</div>
+<div onClick="{{ setTabPromo }}" style="cursor:pointer;padding:9px 16px;border-radius:8px;font-weight:700;font-size:13px;background:{{ tabPromoBg }};color:{{ tabPromoFg }};">Kode Promo</div>
+</div>
+
+<sc-if value="{{ isWatchlistTab }}" hint-placeholder-val="{{ true }}">
+<div style="background:#fff;border:1px solid #E5E0D0;border-radius:16px;padding:24px;display:flex;flex-direction:column;gap:14px;">
+<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:14px;">
+<div style="display:flex;flex-direction:column;gap:5px;"><span style="font-size:12px;font-weight:700;">Ticker</span><input value="{{ wTicker }}" onChange="{{ onWTicker }}" placeholder="ANTM" style="border:1px solid #E5E0D0;border-radius:9px;padding:10px 12px;font-size:13.5px;"></div>
+<div style="display:flex;flex-direction:column;gap:5px;"><span style="font-size:12px;font-weight:700;">Nama Perusahaan</span><input value="{{ wName }}" onChange="{{ onWName }}" placeholder="Aneka Tambang" style="border:1px solid #E5E0D0;border-radius:9px;padding:10px 12px;font-size:13.5px;"></div>
+<div style="display:flex;flex-direction:column;gap:5px;"><span style="font-size:12px;font-weight:700;">Harga</span><input value="{{ wPrice }}" onChange="{{ onWPrice }}" placeholder="1.605" style="border:1px solid #E5E0D0;border-radius:9px;padding:10px 12px;font-size:13.5px;"></div>
+<div style="display:flex;flex-direction:column;gap:5px;"><span style="font-size:12px;font-weight:700;">Tier Minimum</span>
+<select value="{{ wTier }}" onChange="{{ onWTier }}" style="border:1px solid #E5E0D0;border-radius:9px;padding:10px 12px;font-size:13.5px;background:#fff;">
+<option value="free">Gratis</option><option value="silver">Silver</option><option value="gold">Gold</option><option value="platinum">Platinum</option>
+</select>
+</div>
+</div>
+<div style="display:flex;flex-direction:column;gap:5px;"><span style="font-size:12px;font-weight:700;">Catatan Analisis</span><textarea value="{{ wNote }}" onChange="{{ onWNote }}" placeholder="Momentum harga komoditas mendukung..." rows="3" style="border:1px solid #E5E0D0;border-radius:9px;padding:10px 12px;font-size:13.5px;resize:vertical;"></textarea></div>
+<button onClick="{{ onPushWatchlist }}" style="align-self:flex-start;background:#FFC627;border:none;border-radius:10px;padding:12px 22px;font-weight:700;font-size:13.5px;cursor:pointer;">Push ke Feed &amp; Kirim Notifikasi</button>
+</div>
+</sc-if>
+
+<sc-if value="{{ isArticleTab }}" hint-placeholder-val="{{ false }}">
+<div style="background:#fff;border:1px solid #E5E0D0;border-radius:16px;padding:24px;display:flex;flex-direction:column;gap:14px;">
+<div style="display:flex;flex-direction:column;gap:5px;"><span style="font-size:12px;font-weight:700;">Judul Artikel</span><input value="{{ aTitle }}" onChange="{{ onATitle }}" placeholder="Target Harga ANTM Kuartal Ini" style="border:1px solid #E5E0D0;border-radius:9px;padding:10px 12px;font-size:13.5px;"></div>
+<div style="display:flex;flex-direction:column;gap:5px;"><span style="font-size:12px;font-weight:700;">Isi Artikel</span><textarea value="{{ aBody }}" onChange="{{ onABody }}" placeholder="Tulis analisis lengkap di sini..." rows="5" style="border:1px solid #E5E0D0;border-radius:9px;padding:10px 12px;font-size:13.5px;resize:vertical;"></textarea></div>
+<div style="display:flex;flex-direction:column;gap:5px;max-width:220px;"><span style="font-size:12px;font-weight:700;">Tier Minimum</span>
+<select value="{{ aTier }}" onChange="{{ onATier }}" style="border:1px solid #E5E0D0;border-radius:9px;padding:10px 12px;font-size:13.5px;background:#fff;">
+<option value="free">Gratis</option><option value="silver">Silver</option><option value="gold">Gold</option><option value="platinum">Platinum</option>
+</select>
+</div>
+<button onClick="{{ onPushArticle }}" style="align-self:flex-start;background:#FFC627;border:none;border-radius:10px;padding:12px 22px;font-weight:700;font-size:13.5px;cursor:pointer;">Publikasikan &amp; Kirim Notifikasi</button>
+</div>
+</sc-if>
+
+<sc-if value="{{ isPromoTab }}" hint-placeholder-val="{{ false }}">
+<div style="display:flex;flex-direction:column;gap:14px;">
+<sc-for list="{{ promos }}" as="pr" hint-placeholder-count="2">
+<div style="background:#fff;border:1px solid #E5E0D0;border-radius:16px;padding:22px;display:flex;flex-direction:column;gap:14px;">
+<div style="display:flex;align-items:center;justify-content:space-between;gap:12px;">
+<div onClick="{{ pr.onToggleActive }}" style="cursor:pointer;display:flex;align-items:center;gap:12px;">
+<div style="width:44px;height:24px;border-radius:12px;background:{{ pr.toggleBg }};position:relative;flex:none;">
+<div style="width:18px;height:18px;border-radius:50%;background:#fff;position:absolute;top:3px;left:{{ pr.toggleLeft }};transition:left .18s;"></div>
+</div>
+<span style="font-size:13.5px;font-weight:700;">{{ pr.activeLabel }}</span>
+</div>
+<div onClick="{{ pr.onRemove }}" style="cursor:pointer;font-size:12px;font-weight:700;color:#E0483E;">Hapus</div>
+</div>
+<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:14px;">
+<div style="display:flex;flex-direction:column;gap:5px;"><span style="font-size:12px;font-weight:700;">Kode Promo</span><input value="{{ pr.code }}" onChange="{{ pr.onCode }}" placeholder="SOCIALTRADE-RH23" style="border:1px solid #E5E0D0;border-radius:9px;padding:10px 12px;font-size:13.5px;"></div>
+<div style="display:flex;flex-direction:column;gap:5px;"><span style="font-size:12px;font-weight:700;">Diskon (%)</span><input value="{{ pr.percent }}" onChange="{{ pr.onPercent }}" placeholder="10" style="border:1px solid #E5E0D0;border-radius:9px;padding:10px 12px;font-size:13.5px;"></div>
+<div style="display:flex;flex-direction:column;gap:5px;"><span style="font-size:12px;font-weight:700;">Berlaku Sampai</span><input type="date" value="{{ pr.until }}" onChange="{{ pr.onUntil }}" style="border:1px solid #E5E0D0;border-radius:9px;padding:10px 12px;font-size:13.5px;"></div>
+</div>
+</div>
+</sc-for>
+<div style="display:flex;align-items:center;gap:14px;">
+<div onClick="{{ onAddPromo }}" style="cursor:pointer;color:#8A6400;font-weight:700;font-size:13.5px;">+ Tambah Kode Promo</div>
+<button onClick="{{ onSavePromo }}" style="background:#FFC627;border:none;border-radius:10px;padding:11px 20px;font-weight:700;font-size:13.5px;cursor:pointer;">Simpan Semua</button>
+<sc-if value="{{ promoSaved }}" hint-placeholder-val="{{ false }}"><div style="font-size:12px;color:#1A9E5C;font-weight:600;">Perubahan promo tersimpan.</div></sc-if>
+</div>
+</div>
+</sc-if>
+
+<div>
+<div style="font-weight:800;font-size:16px;margin-bottom:12px;">Riwayat konten terkirim</div>
+<div style="display:flex;flex-direction:column;gap:8px;">
+<sc-for list="{{ pushHistory }}" as="h" hint-placeholder-count="3">
+<div style="background:#fff;border:1px solid #E5E0D0;border-radius:12px;padding:14px 16px;display:flex;align-items:center;gap:12px;">
+<span style="font-size:10px;font-weight:800;color:#8A6400;background:#FFF3D0;padding:3px 8px;border-radius:5px;">{{ h.typeLabel }}</span>
+<span style="font-size:13.5px;font-weight:600;flex:1;">{{ h.title }}</span>
+<span style="font-size:11.5px;color:#8A8474;">{{ h.time }}</span>
+</div>
+</sc-for>
+</div>
+</div>
+
+</div>
+</div>
+
+</x-dc>
+<script type="text/x-dc" data-dc-script>
+class Component extends DCLogic {
+  state = {
+    tab: 'watchlist',
+    wTicker: '', wName: '', wPrice: '', wTier: 'free', wNote: '',
+    aTitle: '', aBody: '', aTier: 'free',
+    promos: [
+      { id: 'p1', active: true, code: 'SOCIALTRADE-RH23', percent: '10', until: '' },
+      { id: 'p2', active: true, code: 'PROMO-9.9', percent: '15', until: '' }
+    ],
+    promoSaved: false,
+    history: [
+      { typeLabel: 'WATCHLIST', title: 'BBCA ditambahkan ke watchlist pilihan', time: '2 jam lalu' },
+      { typeLabel: 'ARTIKEL', title: 'Strategi Rotasi Sektor 2026 dipublikasikan', time: 'Kemarin' }
+    ]
+  };
+
+  setTab = (tab) => this.setState({ tab });
+  onField = (key) => (e) => this.setState({ [key]: e.target.value });
+
+  pushWatchlist = () => {
+    if (!this.state.wTicker) return;
+    const entry = { typeLabel: 'WATCHLIST', title: `${this.state.wTicker} ditambahkan ke watchlist pilihan`, time: 'Baru saja' };
+    this.setState(s => ({ history: [entry, ...s.history], wTicker: '', wName: '', wPrice: '', wNote: '' }));
+  };
+  pushArticle = () => {
+    if (!this.state.aTitle) return;
+    const entry = { typeLabel: 'ARTIKEL', title: `${this.state.aTitle} dipublikasikan`, time: 'Baru saja' };
+    this.setState(s => ({ history: [entry, ...s.history], aTitle: '', aBody: '' }));
+  };
+  updatePromo = (id, key, value) => this.setState(s => ({ promos: s.promos.map(pr => pr.id === id ? { ...pr, [key]: value } : pr) }));
+  togglePromoActive = (id) => this.setState(s => ({ promos: s.promos.map(pr => pr.id === id ? { ...pr, active: !pr.active } : pr) }));
+  removePromo = (id) => this.setState(s => ({ promos: s.promos.filter(pr => pr.id !== id) }));
+  addPromo = () => this.setState(s => ({ promos: [...s.promos, { id: 'p' + Date.now(), active: true, code: '', percent: '', until: '' }] }));
+  savePromo = () => {
+    this.setState({ promoSaved: true });
+    clearTimeout(this._promoTimer);
+    this._promoTimer = setTimeout(() => this.setState({ promoSaved: false }), 2000);
+  };
+
+  renderVals() {
+    const s = this.state;
+    const tabActive = (active) => ({ bg: active ? '#1A1A1A' : '#fff', fg: active ? '#FFC627' : '#4A473C' });
+    const w = tabActive(s.tab === 'watchlist');
+    const a = tabActive(s.tab === 'article');
+    const p = tabActive(s.tab === 'promo');
+    return {
+      isWatchlistTab: s.tab === 'watchlist', isArticleTab: s.tab === 'article', isPromoTab: s.tab === 'promo',
+      setTabWatchlist: this.setTab.bind(this, 'watchlist'), setTabArticle: this.setTab.bind(this, 'article'), setTabPromo: this.setTab.bind(this, 'promo'),
+      tabWatchlistBg: w.bg, tabWatchlistFg: w.fg, tabArticleBg: a.bg, tabArticleFg: a.fg, tabPromoBg: p.bg, tabPromoFg: p.fg,
+      promos: s.promos.map(pr => ({
+        ...pr,
+        activeLabel: pr.active ? 'Aktif' : 'Nonaktif',
+        toggleBg: pr.active ? '#1A9E5C' : '#DDD5B8', toggleLeft: pr.active ? '23px' : '3px',
+        onToggleActive: this.togglePromoActive.bind(this, pr.id),
+        onRemove: this.removePromo.bind(this, pr.id),
+        onCode: (e) => this.updatePromo(pr.id, 'code', e.target.value),
+        onPercent: (e) => this.updatePromo(pr.id, 'percent', e.target.value),
+        onUntil: (e) => this.updatePromo(pr.id, 'until', e.target.value)
+      })),
+      onAddPromo: this.addPromo, promoSaved: s.promoSaved, onSavePromo: this.savePromo,
+      wTicker: s.wTicker, wName: s.wName, wPrice: s.wPrice, wTier: s.wTier, wNote: s.wNote,
+      onWTicker: this.onField('wTicker'), onWName: this.onField('wName'), onWPrice: this.onField('wPrice'), onWTier: this.onField('wTier'), onWNote: this.onField('wNote'),
+      aTitle: s.aTitle, aBody: s.aBody, aTier: s.aTier,
+      onATitle: this.onField('aTitle'), onABody: this.onField('aBody'), onATier: this.onField('aTier'),
+      onPushWatchlist: this.pushWatchlist, onPushArticle: this.pushArticle,
+      pushHistory: s.history
+    };
+  }
+}
+
+</script>
+</body>
+</html>

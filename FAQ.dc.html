@@ -1,0 +1,104 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Sora:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<style>
+body{margin:0;background:#fff;-webkit-font-smoothing:antialiased}
+a{color:#B8860B;text-decoration:none}
+a:hover{color:#8A6400;text-decoration:underline}
+*{box-sizing:border-box}
+</style>
+</helmet>
+
+<div style="font-family:'Sora',sans-serif;color:#14140F;">
+
+<!-- NAV -->
+<div style="background:#14140F;">
+<div style="max-width:1200px;margin:0 auto;padding:18px 24px;display:flex;align-items:center;gap:28px;">
+<a href="Landing Page v2.dc.html" style="display:flex;align-items:center;gap:9px;">
+<img src="assets/st-icon-yellow.png" style="width:30px;height:30px;object-fit:contain;flex:none;">
+<span style="font-weight:800;font-size:16px;color:#fff;">Social Trade</span>
+</a>
+<div style="flex:1;"></div>
+<div style="display:flex;gap:20px;flex-wrap:wrap;font-weight:600;font-size:13.5px;color:#B8B296;">
+<a href="Tentang.dc.html" style="color:#B8B296;">Tentang</a>
+<a href="Landing Page v2.dc.html#preview" style="color:#B8B296;">Konten</a>
+<a href="Landing Page v2.dc.html#paket" style="color:#B8B296;">Paket</a>
+<a href="FAQ.dc.html" style="color:#B8B296;">FAQ</a>
+<a href="Landing Page v2.dc.html#kontak" style="color:#B8B296;">Kontak</a>
+</div>
+</div>
+</div>
+
+<!-- HERO -->
+<div style="max-width:760px;margin:0 auto;padding:64px 24px 24px;text-align:center;">
+<span style="font-size:12.5px;font-weight:700;color:#8A6400;letter-spacing:.06em;text-transform:uppercase;">FAQ</span>
+<div style="font-weight:800;font-size:34px;margin-top:10px;">Pertanyaan yang sering ditanya</div>
+<div style="font-size:14.5px;color:#6B6B5F;margin-top:10px;">Nggak ketemu jawabannya? <a href="Landing Page v2.dc.html#kontak">Hubungi admin kami</a>.</div>
+</div>
+
+<!-- FAQ LIST -->
+<div style="max-width:760px;margin:0 auto;padding:16px 24px 80px;">
+<div style="display:flex;flex-direction:column;gap:10px;">
+<sc-for list="{{ faqs }}" as="f" hint-placeholder-count="6">
+<div style="border:1px solid #ECE7D6;border-radius:12px;overflow:hidden;">
+<div onClick="{{ f.onToggle }}" style="cursor:pointer;padding:16px 18px;display:flex;align-items:center;justify-content:space-between;gap:12px;font-weight:700;font-size:14.5px;">{{ f.q }}<span style="flex:none;color:#8A6400;">{{ f.toggleIcon }}</span></div>
+<sc-if value="{{ f.isOpen }}" hint-placeholder-val="{{ false }}">
+<div style="padding:0 18px 16px;font-size:13.5px;color:#4A473C;line-height:1.6;">{{ f.a }}</div>
+</sc-if>
+</div>
+</sc-for>
+</div>
+</div>
+
+<!-- FOOTER -->
+<div style="background:#14140F;">
+<div style="max-width:1200px;margin:0 auto;padding:32px 24px;display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:16px;">
+<div style="display:flex;align-items:center;gap:8px;">
+<img src="assets/st-icon-yellow.png" style="width:24px;height:24px;object-fit:contain;flex:none;">
+<span style="font-weight:700;font-size:13.5px;color:#fff;">Social Trade</span>
+<span style="font-size:12px;color:#6B6B5F;margin-left:8px;">&copy; 2026</span>
+</div>
+<div style="display:flex;gap:20px;font-size:12.5px;color:#8A8474;">
+<a href="Landing Page v2.dc.html#kontak" style="color:#8A8474;">Kontak</a>
+</div>
+</div>
+</div>
+
+</div>
+
+</x-dc>
+<script type="text/x-dc" data-dc-script>
+class Component extends DCLogic {
+  state = { openIndex: 0 };
+
+  toggleFaq = (i) => this.setState(s => ({ openIndex: s.openIndex === i ? null : i }));
+
+  renderVals() {
+    const faqsRaw = [
+      { q: 'Gimana cara bayar paketnya?', a: 'Kamu bisa bayar via transfer bank, QRIS, atau e-wallet lewat halaman checkout setelah pilih paket.' },
+      { q: 'Setelah bayar, kapan konten member kebuka?', a: 'Otomatis langsung kebuka begitu pembayaran dikonfirmasi, nggak perlu tunggu admin.' },
+      { q: 'Bisa refund kalau nggak cocok?', a: 'Refund bisa diajukan dalam 3 hari pertama kalau belum akses konten member. Hubungi admin buat proses ini.' },
+      { q: 'Paket Lifetime beneran seumur hidup?', a: 'Betul, sekali bayar kamu dapat akses semua watchlist dan artikel member selamanya.' },
+      { q: 'Apakah ada garansi profit?', a: 'Tidak. Watchlist dan analisis kami adalah materi edukasi, bukan jaminan keuntungan. Keputusan investasi tetap di tangan kamu.' },
+      { q: 'Gimana cara upgrade dari Silver ke paket lain?', a: 'Hubungi admin untuk bantuan upgrade, sisa masa aktif akan dihitungkan ke paket baru.' }
+    ];
+    const faqs = faqsRaw.map((f, i) => {
+      const isOpen = this.state.openIndex === i;
+      return { ...f, isOpen, toggleIcon: isOpen ? '\u2212' : '+', onToggle: this.toggleFaq.bind(this, i) };
+    });
+    return { faqs };
+  }
+}
+
+</script>
+</body>
+</html>
