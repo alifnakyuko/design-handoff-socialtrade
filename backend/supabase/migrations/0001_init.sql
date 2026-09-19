@@ -63,8 +63,8 @@ alter table public.push_history enable row level security;
 create policy "users read own row" on public.users
   for select using (auth.uid() = id);
 
-create policy "content items readable by any authenticated user" on public.content_items
-  for select using (auth.role() = 'authenticated');
+create policy "content items are publicly readable" on public.content_items
+  for select using (true);
 
 create policy "orders read own row" on public.orders
   for select using (auth.uid() = user_id);
