@@ -22,14 +22,19 @@ function signedNotification(overrides: Partial<MidtransNotification>): MidtransN
 
 type Row = Record<string, any>;
 
-type ForceError = { table: 'orders' | 'users'; when: (patch: Row | null) => boolean; error: any };
+type ForceError = { table: 'orders' | 'users' | 'rpc'; when: (patch: Row | null) => boolean; error: any };
 type Hook = { table: 'orders' | 'users'; mode: 'select' | 'update'; once?: boolean; fired?: boolean; fn: () => void };
 
-// A small in-memory fake that evaluates filters against real row data (rather than a
-// pre-scripted call-chain shape). This means any combination of .eq()/.in()/.is()/.not()/
-// .neq()/.select()/.single() the implementation calls, in any order, is exercised by real
-// predicate logic instead of needing the mock to separately mirror the exact chain depth --
+// A small in-memory fake that evaluates filters/RPC logic against real row data (rather
+// than a pre-scripted call-chain shape). This means any combination of .eq()/.in()/.is()/
+// .not()/.neq()/.select()/.single()/.rpc() the implementation calls is exercised by real
+// predicate logic instead of needing the mock to separately mirror an exact chain depth --
 // a class of bug that has bitten this test file more than once before.
+//
+// apply_membership_grant (the real Postgres function -- see
+// supabase/migrations/0003_apply_membership_grant.sql) is reimplemented here as a plain JS
+// function operating on the same in-memory `state`, mirroring its precondition-then-both-
+// writes-or-neither semantics without needing a real Postgres to test against.
 function makeSupabase(
   initial: { orders: Row[]; users: Row[] },
   opts: { forceError?: ForceError[]; hooks?: Hook[] } = {}
@@ -40,6 +45,7 @@ function makeSupabase(
   };
   const orderUpdates: Row[] = [];
   const userUpdates: Row[] = [];
+  const rpcCalls: Row[] = [];
 
   function builder(tableName: 'orders' | 'users') {
     const filters: Array<(row: Row) => boolean> = [];
@@ -112,8 +118,7 @@ function makeSupabase(
 
       // Snapshot the result BEFORE firing hooks: a hook simulates a concurrent write that
       // happens strictly after this call's own read/write result is already determined, not
-      // one that retroactively changes what this call itself sees (that would just make the
-      // "concurrent write" invisible to the very call it's supposed to race against).
+      // one that retroactively changes what this call itself sees.
       const result = singleMode
         ? { data: matched[0] ? { ...matched[0] } : null, error: matched[0] ? null : { message: 'not found' } }
         : { data: matched.map((row) => ({ ...row })), error: null };
@@ -131,11 +136,51 @@ function makeSupabase(
     return self;
   }
 
+  async function rpc(fnName: string, params: Row) {
+    rpcCalls.push({ fnName, params });
+
+    if (fnName !== 'apply_membership_grant') {
+      throw new Error(`fake rpc does not support ${fnName}`);
+    }
+
+    const forced = (opts.forceError ?? []).find((f) => f.table === 'rpc' && f.when(params));
+    if (forced) {
+      return { data: null, error: forced.error };
+    }
+
+    const order = state.orders.find((o) => o.id === params.p_order_id);
+    if (!order || !['pending', 'failed'].includes(order.status)) {
+      return { data: 'order_already_processed', error: null };
+    }
+
+    const user = state.users.find((u) => u.id === params.p_user_id);
+    const userTier = user ? user.tier : null;
+    const userExpiresAt = user ? (user.expires_at ?? null) : null;
+
+    if (userTier !== params.p_expected_tier || userExpiresAt !== params.p_expected_expires_at) {
+      return { data: 'user_state_changed', error: null };
+    }
+
+    order.status = 'paid';
+    order.paid_at = params.p_paid_at;
+    order.midtrans_transaction_id = params.p_transaction_id;
+    if (user) {
+      user.tier = params.p_new_tier;
+      user.expires_at = params.p_new_expires_at;
+    }
+    orderUpdates.push({ status: 'paid', midtrans_transaction_id: params.p_transaction_id });
+    userUpdates.push({ tier: params.p_new_tier, expires_at: params.p_new_expires_at });
+
+    return { data: 'ok', error: null };
+  }
+
   return {
     orderUpdates,
     userUpdates,
+    rpcCalls,
     state,
     from: (table: 'orders' | 'users') => builder(table),
+    rpc,
   } as any;
 }
 
@@ -230,24 +275,29 @@ describe('handleMidtransNotification', () => {
 
     const result = await handleMidtransNotification(supabase, notification, SERVER_KEY);
     expect(result).toEqual({ status: 'write_failed' });
-    // The order transitioned to 'paid' inside grantMembership's caller before the grant was
-    // attempted -- but since the grant failed, it must have been reverted back to 'pending'.
+    // Nothing was ever written: the read failure happens before the atomic grant is even
+    // attempted, so the order is untouched.
     expect(supabase.state.orders[0].status).toBe('pending');
+    expect(supabase.rpcCalls).toHaveLength(0);
   });
 
-  it('returns write_failed when the paid order update fails', async () => {
+  it('returns write_failed and leaves all state untouched when the grant rpc call itself errors', async () => {
     const notification = signedNotification({ transaction_status: 'settlement' });
     const supabase = makeSupabase(
       {
         orders: [{ id: 'order-1', midtrans_order_id: 'ST-u1-123', user_id: 'u1', plan: 'gold', status: 'pending' }],
         users: [{ id: 'u1', tier: 'free', expires_at: null }],
       },
-      { forceError: [{ table: 'orders', when: (patch) => patch?.status === 'paid', error: { message: 'db error' } }] }
+      { forceError: [{ table: 'rpc', when: () => true, error: { message: 'db error' } }] }
     );
 
     const result = await handleMidtransNotification(supabase, notification, SERVER_KEY);
+
     expect(result).toEqual({ status: 'write_failed' });
-    expect(supabase.userUpdates).toHaveLength(0);
+    // apply_membership_grant is one atomic transaction: an error means nothing committed,
+    // so the order stays exactly as it started -- there is no "revert" step needed anymore.
+    expect(supabase.state.orders[0].status).toBe('pending');
+    expect(supabase.state.users[0].tier).toBe('free');
   });
 
   it('does not grant membership time twice when Midtrans redelivers the same settlement (capture+settlement pair or a retry)', async () => {
@@ -307,29 +357,13 @@ describe('handleMidtransNotification', () => {
     expect(supabase.state.users[0].tier).toBe('gold');
   });
 
-  it('reverts the order to pending (instead of leaving it stuck paid) when the membership grant fails', async () => {
-    const notification = signedNotification({ transaction_status: 'settlement' });
-    const supabase = makeSupabase(
-      {
-        orders: [{ id: 'order-1', midtrans_order_id: 'ST-u1-123', user_id: 'u1', plan: 'gold', status: 'pending' }],
-        users: [{ id: 'u1', tier: 'free', expires_at: null }],
-      },
-      { forceError: [{ table: 'users', when: (patch) => patch?.tier != null, error: { message: 'db error' } }] }
-    );
-
-    const result = await handleMidtransNotification(supabase, notification, SERVER_KEY);
-
-    expect(result).toEqual({ status: 'write_failed' });
-    expect(supabase.state.orders[0].status).toBe('pending');
-    expect(supabase.state.users[0].tier).toBe('free');
-  });
-
   it('does not silently overwrite a concurrent order for the same user; retries against fresh state', async () => {
     // Simulates two near-simultaneous orders for the same user: right after this
-    // notification's grant logic reads the user row (free, no expiry), a concurrent order
-    // for the same user is applied (as if another webhook call already granted 'silver').
-    // The optimistic write for THIS notification must lose that race, detect it, and retry
-    // against the fresh ('silver') state rather than blindly overwriting it.
+    // notification reads the user row (free, no expiry), a concurrent order for the same
+    // user is applied (as if another webhook call already granted 'silver' via the RPC).
+    // apply_membership_grant's precondition check must reject THIS notification's rpc call
+    // (user_state_changed), and the caller must retry against the fresh ('silver') state
+    // rather than blindly overwriting it.
     const supabase = makeSupabase(
       {
         orders: [{ id: 'order-1', midtrans_order_id: 'ST-u1-123', user_id: 'u1', plan: 'gold', status: 'pending' }],
@@ -354,20 +388,21 @@ describe('handleMidtransNotification', () => {
     const result = await handleMidtransNotification(supabase, signedNotification({ transaction_status: 'settlement' }), SERVER_KEY);
 
     expect(result).toEqual({ status: 'updated' });
-    // Two attempts: the first optimistic write (against the stale 'free' read) must have
-    // lost the race and been retried against the fresh 'silver' state.
-    expect(supabase.userUpdates).toHaveLength(2);
+    // Two rpc calls: the first (against the stale 'free' read) must have been rejected as
+    // user_state_changed, then retried against the fresh 'silver' state and succeeded.
+    expect(supabase.rpcCalls).toHaveLength(2);
+    expect(supabase.userUpdates).toHaveLength(1); // only the second (successful) call actually wrote
     expect(supabase.state.users[0].tier).toBe('gold'); // final state reflects the retry's upgrade from silver, not free
   });
 
-  it('optimistic concurrency guard matches on the exact stored expires_at value, including sub-millisecond precision', async () => {
+  it('rpc precondition matches on the exact stored expires_at value, including sub-millisecond precision', async () => {
     // Real Postgres/PostgREST timestamptz values can carry microsecond precision (e.g.
     // "...123456Z"), which `new Date(x).toISOString()` always collapses to millisecond
-    // precision when re-serialized. If the optimistic-concurrency filter re-serialized the
-    // read value instead of reusing the exact raw string, it would never match such a row
-    // and the grant would fail forever for that user (this happened with a manually
-    // SQL-backfilled expires_at, which is exactly what this project's own deployment docs
-    // recommend for legacy users -- see the spec's "Deployment Note").
+    // precision when re-serialized. If the code passed a re-serialized value as
+    // p_expected_expires_at instead of the exact raw string read, apply_membership_grant's
+    // row-locked comparison would never match such a row and the grant would fail forever
+    // for that user (this happened with a manually SQL-backfilled expires_at, which is
+    // exactly what this project's own deployment docs recommend for legacy users).
     const future = new Date(Date.now() + 100 * 24 * 60 * 60 * 1000);
     const roundTripped = future.toISOString(); // e.g. "...T01:02:03.123Z"
     const microPrecisionExpiry = `${roundTripped.slice(0, -1)}456Z`; // "...T01:02:03.123456Z" -- extra digits `new Date(...).toISOString()` would silently drop
@@ -381,6 +416,6 @@ describe('handleMidtransNotification', () => {
 
     expect(result).toEqual({ status: 'updated' });
     expect(supabase.state.users[0].tier).toBe('gold');
-    expect(supabase.userUpdates).toHaveLength(1); // matched and wrote on the first attempt, no spurious retry
+    expect(supabase.rpcCalls).toHaveLength(1); // matched and wrote on the first attempt, no spurious retry
   });
 });

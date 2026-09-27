@@ -23,74 +23,7 @@ export function verifyMidtransSignature(notification: MidtransNotification, serv
 
 const MAX_GRANT_ATTEMPTS = 2;
 
-// Reads the user's current tier/expiry, computes the new membership state, and writes it
-// back with an optimistic-concurrency guard (only if tier/expires_at are still exactly what
-// was just read). If a concurrent order for the same user changed them in between -- two
-// near-simultaneous purchases -- the write matches zero rows and this retries once against
-// the fresh state, instead of silently overwriting the other order's grant.
-async function grantMembership(
-  supabase: SupabaseClient,
-  userId: string,
-  purchasedPlan: Plan
-): Promise<{ ok: true } | { ok: false }> {
-  for (let attempt = 0; attempt < MAX_GRANT_ATTEMPTS; attempt++) {
-    const { data: userRow, error: userReadError } = await supabase
-      .from('users')
-      .select('tier, expires_at')
-      .eq('id', userId)
-      .single();
-
-    if (userReadError) {
-      return { ok: false };
-    }
-
-    const currentTier: Tier = (userRow?.tier as Tier) ?? 'free';
-    // Keep the raw string as read for the optimistic-concurrency filter below (see query),
-    // and a separately parsed Date only for calculateNewExpiry's arithmetic.
-    const rawExpiresAt: string | null = userRow?.expires_at ?? null;
-    const currentExpiresAt = rawExpiresAt ? new Date(rawExpiresAt) : null;
-
-    let newState;
-    try {
-      newState = calculateNewExpiry(new Date(), { tier: currentTier, expiresAt: currentExpiresAt }, purchasedPlan);
-    } catch (calcError) {
-      console.error('calculateNewExpiry failed while granting membership for user', userId, calcError);
-      return { ok: false };
-    }
-
-    // Filter on the exact raw value PostgREST returned, not a value round-tripped through
-    // `new Date(...).toISOString()`. Postgres timestamptz has microsecond precision but JS
-    // Date only has millisecond precision, so re-serializing would silently never match a
-    // row written with sub-millisecond precision (e.g. a manual `now()`-based SQL backfill),
-    // making this optimistic-concurrency guard fail forever for that user.
-    let query = supabase
-      .from('users')
-      .update({ tier: newState.tier, expires_at: newState.expiresAt ? newState.expiresAt.toISOString() : null })
-      .eq('id', userId)
-      .eq('tier', currentTier);
-    query = rawExpiresAt !== null ? query.eq('expires_at', rawExpiresAt) : query.is('expires_at', null);
-
-    const { data: updatedUsers, error: userUpdateError } = await query.select('id');
-
-    if (userUpdateError) {
-      return { ok: false };
-    }
-    if (updatedUsers && updatedUsers.length > 0) {
-      return { ok: true };
-    }
-    // Lost the optimistic race against a concurrent order for the same user -- loop and
-    // retry against the fresh state instead of giving up on this grant.
-  }
-
-  console.error(
-    'Optimistic concurrency conflict granting membership for user',
-    userId,
-    '- gave up after',
-    MAX_GRANT_ATTEMPTS,
-    'attempts'
-  );
-  return { ok: false };
-}
+type GrantRpcResult = 'ok' | 'order_already_processed' | 'user_state_changed';
 
 export async function handleMidtransNotification(
   supabase: SupabaseClient,
@@ -132,67 +65,76 @@ export async function handleMidtransNotification(
     return { status: 'updated' };
   }
 
-  // Atomically transition to paid. Both 'pending' (the normal case) and 'failed' are
-  // accepted prior states: Midtrans can send `deny` for a first payment attempt and then
-  // `settlement`/`capture` for a later attempt with a different payment method, under the
-  // same order_id -- that must still be able to grant membership. An already-'paid' order
-  // (a duplicate notification) matches zero rows here, which is the idempotency signal.
-  const { data: updatedOrders, error: paidUpdateError } = await supabase
-    .from('orders')
-    .update({
-      status: 'paid',
-      paid_at: new Date().toISOString(),
-      midtrans_transaction_id: notification.transaction_id,
-    })
-    .eq('id', order.id)
-    .in('status', ['pending', 'failed'])
-    .select('id');
-
-  if (paidUpdateError) {
-    return { status: 'write_failed' };
-  }
-
-  if (!updatedOrders || updatedOrders.length === 0) {
-    // Duplicate notification for an order already transitioned out of pending/failed by an
-    // earlier delivery. Acknowledge success to Midtrans (so it stops retrying) without
-    // re-applying the membership grant.
-    return { status: 'updated' };
-  }
-
-  // KNOWN LIMITATION: the paid-transition above and grantMembership() below are two
-  // separate database round-trips, not one transaction. If this process is killed in
-  // between (a Vercel function timeout, an instance recycle, a deploy) -- after the order
-  // commits to 'paid' but before the grant is read/attempted -- the compensating revert
-  // below never runs, and the order is left stuck 'paid' with no grant ever applied. A
-  // Midtrans retry in that state matches zero rows (the order is already 'paid') and just
-  // re-acknowledges success, so the retry will not fix it either. This window is narrow
-  // (spans one or two round-trips) but real. The robust fix is a single Postgres
-  // transaction/RPC covering both writes; until that lands, this needs periodic manual
-  // reconciliation (find 'paid' orders whose user's tier/expires_at don't reflect them).
   const purchasedPlan = order.plan as Plan;
-  const grantResult = await grantMembership(supabase, order.user_id, purchasedPlan);
 
-  if (!grantResult.ok) {
-    // Best-effort compensation: revert the order back to 'pending' so a Midtrans retry (or
-    // manual reconciliation) gets another chance to apply the grant, instead of the order
-    // being stuck 'paid' forever with no membership ever applied. If this compensating
-    // write itself also fails, the order is left wrongly 'paid' with no grant -- manual
-    // reconciliation is needed, hence the loud log.
-    const { error: revertError } = await supabase
-      .from('orders')
-      .update({ status: 'pending' })
-      .eq('id', order.id)
-      .eq('status', 'paid');
-    if (revertError) {
-      console.error(
-        'Failed to revert order',
-        order.id,
-        'to pending after a failed membership grant -- manual reconciliation needed',
-        revertError
-      );
+  // The order-paid transition and the membership grant are applied atomically by the
+  // apply_membership_grant() Postgres function (see supabase/migrations/0003_*.sql): it
+  // locks both rows and only writes if the order is still pending/failed AND the user's
+  // tier/expires_at are still exactly what was read below. This closes the crash window an
+  // earlier version of this code had between two separate writes, and replaces an
+  // application-level optimistic-concurrency retry with a real row lock. calculateNewExpiry
+  // itself stays in TypeScript -- the database function does not duplicate that logic, it
+  // only re-verifies the precondition it was computed from before writing.
+  for (let attempt = 0; attempt < MAX_GRANT_ATTEMPTS; attempt++) {
+    const { data: userRow, error: userReadError } = await supabase
+      .from('users')
+      .select('tier, expires_at')
+      .eq('id', order.user_id)
+      .single();
+
+    if (userReadError) {
+      return { status: 'write_failed' };
     }
-    return { status: 'write_failed' };
+
+    const currentTier: Tier = (userRow?.tier as Tier) ?? 'free';
+    const rawExpiresAt: string | null = userRow?.expires_at ?? null;
+    const currentExpiresAt = rawExpiresAt ? new Date(rawExpiresAt) : null;
+
+    let newState;
+    try {
+      newState = calculateNewExpiry(new Date(), { tier: currentTier, expiresAt: currentExpiresAt }, purchasedPlan);
+    } catch (calcError) {
+      console.error('calculateNewExpiry failed while granting membership for order', order.id, calcError);
+      return { status: 'write_failed' };
+    }
+
+    const { data: rpcResult, error: rpcError } = await supabase.rpc('apply_membership_grant', {
+      p_order_id: order.id,
+      p_paid_at: new Date().toISOString(),
+      p_transaction_id: notification.transaction_id,
+      p_user_id: order.user_id,
+      p_expected_tier: currentTier,
+      p_expected_expires_at: rawExpiresAt,
+      p_new_tier: newState.tier,
+      p_new_expires_at: newState.expiresAt ? newState.expiresAt.toISOString() : null,
+    });
+
+    if (rpcError) {
+      return { status: 'write_failed' };
+    }
+
+    const result = rpcResult as GrantRpcResult;
+
+    if (result === 'ok') {
+      return { status: 'updated' };
+    }
+    if (result === 'order_already_processed') {
+      // Duplicate notification for an order a different delivery already transitioned out
+      // of pending/failed. Acknowledge success to Midtrans (so it stops retrying) without
+      // re-applying the membership grant.
+      return { status: 'updated' };
+    }
+    // result === 'user_state_changed': a concurrent order for the same user won the row
+    // lock first and changed tier/expires_at since we read it. Loop and retry against the
+    // fresh state instead of giving up on this grant.
   }
 
-  return { status: 'updated' };
+  console.error(
+    'apply_membership_grant kept reporting user_state_changed for order',
+    order.id,
+    '- gave up after',
+    MAX_GRANT_ATTEMPTS,
+    'attempts'
+  );
+  return { status: 'write_failed' };
 }
