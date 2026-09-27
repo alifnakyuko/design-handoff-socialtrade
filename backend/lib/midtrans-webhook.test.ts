@@ -359,4 +359,28 @@ describe('handleMidtransNotification', () => {
     expect(supabase.userUpdates).toHaveLength(2);
     expect(supabase.state.users[0].tier).toBe('gold'); // final state reflects the retry's upgrade from silver, not free
   });
+
+  it('optimistic concurrency guard matches on the exact stored expires_at value, including sub-millisecond precision', async () => {
+    // Real Postgres/PostgREST timestamptz values can carry microsecond precision (e.g.
+    // "...123456Z"), which `new Date(x).toISOString()` always collapses to millisecond
+    // precision when re-serialized. If the optimistic-concurrency filter re-serialized the
+    // read value instead of reusing the exact raw string, it would never match such a row
+    // and the grant would fail forever for that user (this happened with a manually
+    // SQL-backfilled expires_at, which is exactly what this project's own deployment docs
+    // recommend for legacy users -- see the spec's "Deployment Note").
+    const future = new Date(Date.now() + 100 * 24 * 60 * 60 * 1000);
+    const roundTripped = future.toISOString(); // e.g. "...T01:02:03.123Z"
+    const microPrecisionExpiry = `${roundTripped.slice(0, -1)}456Z`; // "...T01:02:03.123456Z" -- extra digits `new Date(...).toISOString()` would silently drop
+
+    const supabase = makeSupabase({
+      orders: [{ id: 'order-1', midtrans_order_id: 'ST-u1-123', user_id: 'u1', plan: 'gold', status: 'pending' }],
+      users: [{ id: 'u1', tier: 'silver', expires_at: microPrecisionExpiry }],
+    });
+
+    const result = await handleMidtransNotification(supabase, signedNotification({ transaction_status: 'settlement' }), SERVER_KEY);
+
+    expect(result).toEqual({ status: 'updated' });
+    expect(supabase.state.users[0].tier).toBe('gold');
+    expect(supabase.userUpdates).toHaveLength(1); // matched and wrote on the first attempt, no spurious retry
+  });
 });

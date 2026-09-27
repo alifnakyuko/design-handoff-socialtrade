@@ -45,7 +45,10 @@ async function grantMembership(
     }
 
     const currentTier: Tier = (userRow?.tier as Tier) ?? 'free';
-    const currentExpiresAt = userRow?.expires_at ? new Date(userRow.expires_at) : null;
+    // Keep the raw string as read for the optimistic-concurrency filter below (see query),
+    // and a separately parsed Date only for calculateNewExpiry's arithmetic.
+    const rawExpiresAt: string | null = userRow?.expires_at ?? null;
+    const currentExpiresAt = rawExpiresAt ? new Date(rawExpiresAt) : null;
 
     let newState;
     try {
@@ -55,12 +58,17 @@ async function grantMembership(
       return { ok: false };
     }
 
+    // Filter on the exact raw value PostgREST returned, not a value round-tripped through
+    // `new Date(...).toISOString()`. Postgres timestamptz has microsecond precision but JS
+    // Date only has millisecond precision, so re-serializing would silently never match a
+    // row written with sub-millisecond precision (e.g. a manual `now()`-based SQL backfill),
+    // making this optimistic-concurrency guard fail forever for that user.
     let query = supabase
       .from('users')
       .update({ tier: newState.tier, expires_at: newState.expiresAt ? newState.expiresAt.toISOString() : null })
       .eq('id', userId)
       .eq('tier', currentTier);
-    query = currentExpiresAt ? query.eq('expires_at', currentExpiresAt.toISOString()) : query.is('expires_at', null);
+    query = rawExpiresAt !== null ? query.eq('expires_at', rawExpiresAt) : query.is('expires_at', null);
 
     const { data: updatedUsers, error: userUpdateError } = await query.select('id');
 
@@ -151,6 +159,16 @@ export async function handleMidtransNotification(
     return { status: 'updated' };
   }
 
+  // KNOWN LIMITATION: the paid-transition above and grantMembership() below are two
+  // separate database round-trips, not one transaction. If this process is killed in
+  // between (a Vercel function timeout, an instance recycle, a deploy) -- after the order
+  // commits to 'paid' but before the grant is read/attempted -- the compensating revert
+  // below never runs, and the order is left stuck 'paid' with no grant ever applied. A
+  // Midtrans retry in that state matches zero rows (the order is already 'paid') and just
+  // re-acknowledges success, so the retry will not fix it either. This window is narrow
+  // (spans one or two round-trips) but real. The robust fix is a single Postgres
+  // transaction/RPC covering both writes; until that lands, this needs periodic manual
+  // reconciliation (find 'paid' orders whose user's tier/expires_at don't reflect them).
   const purchasedPlan = order.plan as Plan;
   const grantResult = await grantMembership(supabase, order.user_id, purchasedPlan);
 
