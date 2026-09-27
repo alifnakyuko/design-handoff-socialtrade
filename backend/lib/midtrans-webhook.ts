@@ -23,7 +23,7 @@ export function verifyMidtransSignature(notification: MidtransNotification, serv
 
 const MAX_GRANT_ATTEMPTS = 2;
 
-type GrantRpcResult = 'ok' | 'order_already_processed' | 'user_state_changed';
+type GrantRpcResult = 'ok' | 'order_already_processed' | 'order_not_found' | 'user_state_changed';
 
 export async function handleMidtransNotification(
   supabase: SupabaseClient,
@@ -123,6 +123,14 @@ export async function handleMidtransNotification(
       // of pending/failed. Acknowledge success to Midtrans (so it stops retrying) without
       // re-applying the membership grant.
       return { status: 'updated' };
+    }
+    if (result === 'order_not_found') {
+      // This order was just read successfully above -- seeing this now means it was
+      // deleted, or (more likely) the RPC call somehow isn't using the service-role client
+      // and RLS hid it. Either way this is a real failure, not a duplicate notification, so
+      // it must not be silently acknowledged as success.
+      console.error('apply_membership_grant reported order_not_found for order', order.id, '-- this should be unreachable');
+      return { status: 'write_failed' };
     }
     // result === 'user_state_changed': a concurrent order for the same user won the row
     // lock first and changed tier/expires_at since we read it. Loop and retry against the

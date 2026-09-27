@@ -149,7 +149,10 @@ function makeSupabase(
     }
 
     const order = state.orders.find((o) => o.id === params.p_order_id);
-    if (!order || !['pending', 'failed'].includes(order.status)) {
+    if (!order) {
+      return { data: 'order_not_found', error: null };
+    }
+    if (!['pending', 'failed'].includes(order.status)) {
       return { data: 'order_already_processed', error: null };
     }
 
@@ -417,5 +420,61 @@ describe('handleMidtransNotification', () => {
     expect(result).toEqual({ status: 'updated' });
     expect(supabase.state.users[0].tier).toBe('gold');
     expect(supabase.rpcCalls).toHaveLength(1); // matched and wrote on the first attempt, no spurious retry
+  });
+
+  it('returns write_failed after exhausting attempts if the user keeps changing state on every retry', async () => {
+    // A pathological case where every retry loses the race (e.g. a very hot user row).
+    // MAX_GRANT_ATTEMPTS is small on purpose: Midtrans's own delivery retries act as the
+    // outer backoff, so giving up quickly here and returning 500 is the right behavior.
+    const supabase = makeSupabase(
+      {
+        orders: [{ id: 'order-1', midtrans_order_id: 'ST-u1-123', user_id: 'u1', plan: 'gold', status: 'pending' }],
+        users: [{ id: 'u1', tier: 'free', expires_at: null }],
+      },
+      {
+        hooks: [
+          {
+            table: 'users',
+            mode: 'select',
+            // once: false (default) -- fires on every read, so every attempt's rpc call sees
+            // state that has already moved on since that read.
+            fn: () => {
+              const currentTier = supabase.state.users[0].tier;
+              supabase.state.users[0].tier = currentTier === 'free' ? 'silver' : 'free';
+            },
+          },
+        ],
+      }
+    );
+
+    const result = await handleMidtransNotification(supabase, signedNotification({ transaction_status: 'settlement' }), SERVER_KEY);
+
+    expect(result).toEqual({ status: 'write_failed' });
+    expect(supabase.userUpdates).toHaveLength(0); // no grant was ever actually written
+  });
+
+  it('returns write_failed (not a silent success) if the grant rpc reports the order as not found', async () => {
+    // This should be unreachable in practice (the order was just read successfully moments
+    // earlier), but if it ever happens -- e.g. RLS hiding the row from a misconfigured
+    // client -- it must surface as a failure, not get silently acknowledged as success the
+    // way a genuine duplicate notification (order_already_processed) is.
+    const supabase = makeSupabase(
+      {
+        orders: [{ id: 'order-1', midtrans_order_id: 'ST-u1-123', user_id: 'u1', plan: 'gold', status: 'pending' }],
+        users: [{ id: 'u1', tier: 'free', expires_at: null }],
+      },
+      { forceError: [] }
+    );
+    // Simulate the RPC's own lookup finding nothing, independent of the earlier read, by
+    // removing the order from state right before the rpc call would run.
+    const originalRpc = supabase.rpc;
+    supabase.rpc = async (fnName: string, params: Row) => {
+      supabase.state.orders.length = 0;
+      return originalRpc(fnName, params);
+    };
+
+    const result = await handleMidtransNotification(supabase, signedNotification({ transaction_status: 'settlement' }), SERVER_KEY);
+
+    expect(result).toEqual({ status: 'write_failed' });
   });
 });
