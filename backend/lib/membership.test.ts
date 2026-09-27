@@ -80,7 +80,27 @@ describe('calculateNewExpiry', () => {
     const futureExpiry = new Date(NOW.getTime() + 60 * DAY_MS);
     expect(() => {
       calculateNewExpiry(NOW, { tier: 'invalid_tier' as Tier, expiresAt: futureExpiry }, 'gold');
-    }).toThrow('dailyRate requires a known plan with valid duration and price: invalid_tier');
+    }).toThrow('Unexpected null or undefined price for plan: invalid_tier');
+  });
+
+  it('a free tier with a stray future expiresAt is treated as no active membership, not a proration source', () => {
+    // Data-consistency guard: a manual revocation might reset `tier` to 'free' without
+    // clearing `expires_at`. Without the tier!=='free' check, this would fall into the
+    // proration branch and throw, since 'free' has no list price to prorate from.
+    const staleExpiry = new Date(NOW.getTime() + 30 * DAY_MS);
+    const result = calculateNewExpiry(NOW, { tier: 'free', expiresAt: staleExpiry }, 'gold');
+    expect(result.tier).toBe('gold');
+    expect(result.expiresAt).toEqual(new Date(NOW.getTime() + 270 * DAY_MS));
+  });
+
+  it('converts a whole number of days exactly, without floating-point rounding loss (platinum->gold, 78 days remaining)', () => {
+    // Exact math: 78 * 4,200,000 * 270 / (540 * 2,600,000) = 88,452,000,000 / 1,404,000,000 = 63 exactly.
+    // A prior implementation computed each plan's daily rate as a float and divided, which
+    // landed at 62.999999999998 for this exact case and silently dropped a day (62 instead of 63).
+    const futureExpiry = new Date(NOW.getTime() + 78 * DAY_MS);
+    const result = calculateNewExpiry(NOW, { tier: 'platinum', expiresAt: futureExpiry }, 'gold');
+    expect(result.tier).toBe('gold');
+    expect(result.expiresAt).toEqual(new Date(NOW.getTime() + (270 + 63) * DAY_MS));
   });
 
   it('throws clear error if purchasedPlan is an unknown string during proration', () => {

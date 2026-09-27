@@ -8,13 +8,34 @@ export type MembershipState = {
 
 const DAY_MS = 24 * 60 * 60 * 1000;
 
-function dailyRate(plan: Plan): number {
+function requireDuration(plan: Plan): number {
   const duration = durationDaysFor(plan);
-  const basePrice = basePriceFor(plan);
-  if (duration == null || basePrice == null) {
-    throw new Error(`dailyRate requires a known plan with valid duration and price: ${plan}`);
+  if (duration == null) {
+    throw new Error(`Unexpected null or undefined duration for non-lifetime plan: ${plan}`);
   }
-  return basePrice / duration;
+  return duration;
+}
+
+function requirePrice(plan: Plan): number {
+  const price = basePriceFor(plan);
+  if (price == null) {
+    throw new Error(`Unexpected null or undefined price for plan: ${plan}`);
+  }
+  return price;
+}
+
+// Converts `remainingDays` of value in `oldPlan` into an equivalent number of days in
+// `newPlan`, at each plan's list price. Uses one integer-friendly expression rather than
+// computing each plan's daily rate as a float and dividing, because that approach silently
+// lost a day for some plan/remaining-day combinations even when the exact mathematical
+// result is a whole number (e.g. platinum->gold with 78 days remaining should convert to
+// exactly 63 days, but float division landed at 62.999999999998 and Math.floor dropped one).
+function convertedDays(remainingDays: number, oldPlan: Plan, newPlan: Plan): number {
+  const oldPrice = requirePrice(oldPlan);
+  const oldDuration = requireDuration(oldPlan);
+  const newPrice = requirePrice(newPlan);
+  const newDuration = requireDuration(newPlan);
+  return Math.floor((remainingDays * oldPrice * newDuration) / (oldDuration * newPrice));
 }
 
 export function calculateNewExpiry(now: Date, current: MembershipState, purchasedPlan: Plan): MembershipState {
@@ -27,12 +48,16 @@ export function calculateNewExpiry(now: Date, current: MembershipState, purchase
     return { tier: 'lifetime', expiresAt: null };
   }
 
-  const purchasedDurationDays = durationDaysFor(purchasedPlan);
-  if (purchasedDurationDays == null) {
-    throw new Error(`Unexpected null or undefined duration for non-lifetime plan: ${purchasedPlan}`);
-  }
+  const purchasedDurationDays = requireDuration(purchasedPlan);
 
-  const hasActiveMembership = current.expiresAt !== null && current.expiresAt.getTime() > now.getTime();
+  // A 'free' tier is never treated as an active membership, even if `expiresAt` happens to
+  // be a future date (e.g. a stray value left over from a manual tier revocation that only
+  // reset `tier` and not `expires_at`) -- `tier` is the source of truth for "is a plan
+  // active", not `expiresAt` alone. Without this check, a free-tier user with such a stray
+  // future `expiresAt` would fall into the proration branch below and `requirePrice('free')`
+  // would throw, since 'free' has no list price.
+  const hasActiveMembership =
+    current.tier !== 'free' && current.expiresAt !== null && current.expiresAt.getTime() > now.getTime();
 
   if (!hasActiveMembership) {
     return {
@@ -51,16 +76,10 @@ export function calculateNewExpiry(now: Date, current: MembershipState, purchase
 
   const remainingMs = current.expiresAt!.getTime() - now.getTime();
   const remainingDays = Math.ceil(remainingMs / DAY_MS);
-  // `current.tier` and `current.expiresAt` are independent fields, not type-enforced together —
-  // a 'free' tier reaching this branch with a non-null future expiresAt would be a
-  // data-consistency bug. The cast to Plan is safe today only because dailyRate throws on
-  // 'free' (which has no price/duration) rather than silently producing NaN.
-  const remainingValue = remainingDays * dailyRate(current.tier as Plan);
-  const newPlanDailyRate = dailyRate(purchasedPlan);
-  const convertedDays = Math.floor(remainingValue / newPlanDailyRate);
+  const converted = convertedDays(remainingDays, current.tier as Plan, purchasedPlan);
 
   return {
     tier: purchasedPlan,
-    expiresAt: new Date(now.getTime() + (purchasedDurationDays + convertedDays) * DAY_MS),
+    expiresAt: new Date(now.getTime() + (purchasedDurationDays + converted) * DAY_MS),
   };
 }
