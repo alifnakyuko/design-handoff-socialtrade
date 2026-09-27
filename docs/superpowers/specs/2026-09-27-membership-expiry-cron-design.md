@@ -32,6 +32,7 @@ A new pure function, `calculateNewExpiry(now, current, purchasedPlan)`, replaces
 
 Returns `{ tier: string; expiresAt: Date | null }` to write back to the user row. Rules, in order:
 
+0. **Current tier is already `lifetime`** → unchanged, `{ tier: 'lifetime', expiresAt: null }`. Lifetime has no `expiresAt` to prorate against and is never demoted by a further purchase (buying a lower plan while already Lifetime is a no-op, not a downgrade).
 1. **Purchased plan is `lifetime`** → `{ tier: 'lifetime', expiresAt: null }`. Always wins; proration is irrelevant since lifetime has no end date.
 2. **No active plan** (`current.tier === 'free'`, or `current.expiresAt` is in the past) → `expiresAt = now + duration_days(purchasedPlan)` days. No proration: there is no remaining value to carry over.
 3. **Same plan as current (renewal)** → `expiresAt = max(now, current.expiresAt) + duration_days(purchasedPlan)` days. This stacks remaining time (renewing early keeps the unused days).
