@@ -46,7 +46,7 @@ function fakeSupabase(opts: { orderRow?: any; userRow?: any }) {
         return {
           select: () => ({
             eq: () => ({
-              single: async () => ({ data: opts.userRow ?? { tier: 'free' }, error: null }),
+              single: async () => ({ data: opts.userRow ?? { tier: 'free', expires_at: null }, error: null }),
             }),
           }),
           update: (patch: any) => ({
@@ -91,30 +91,32 @@ describe('handleMidtransNotification', () => {
     expect(result).toEqual({ status: 'order_not_found' });
   });
 
-  it('marks the order paid and upgrades the user tier on settlement', async () => {
+  it('marks the order paid and sets tier + expires_at on settlement from free', async () => {
     const notification = signedNotification({ transaction_status: 'settlement' });
     const supabase = fakeSupabase({
       orderRow: { id: 'order-1', user_id: 'u1', plan: 'gold', status: 'pending' },
-      userRow: { tier: 'free' },
+      userRow: { tier: 'free', expires_at: null },
     });
 
     const result = await handleMidtransNotification(supabase, notification, SERVER_KEY);
 
     expect(result).toEqual({ status: 'updated' });
     expect(supabase.orderUpdates[0]).toMatchObject({ status: 'paid', midtrans_transaction_id: 'tx-1' });
-    expect(supabase.userUpdates[0]).toEqual({ tier: 'gold' });
+    expect(supabase.userUpdates[0].tier).toBe('gold');
+    expect(supabase.userUpdates[0].expires_at).not.toBeNull();
   });
 
-  it('does not downgrade a higher existing tier on settlement of a lower plan', async () => {
+  it('does not downgrade a lifetime user who buys a lower plan', async () => {
     const notification = signedNotification({ transaction_status: 'settlement' });
     const supabase = fakeSupabase({
       orderRow: { id: 'order-1', user_id: 'u1', plan: 'silver', status: 'pending' },
-      userRow: { tier: 'lifetime' },
+      userRow: { tier: 'lifetime', expires_at: null },
     });
 
-    await handleMidtransNotification(supabase, notification, SERVER_KEY);
+    const result = await handleMidtransNotification(supabase, notification, SERVER_KEY);
 
-    expect(supabase.userUpdates).toHaveLength(0);
+    expect(result).toEqual({ status: 'updated' });
+    expect(supabase.userUpdates[0]).toEqual({ tier: 'lifetime', expires_at: null });
   });
 
   it('marks the order failed and does not touch the user tier on cancel', async () => {
@@ -151,7 +153,7 @@ describe('handleMidtransNotification', () => {
           return {
             select: () => ({
               eq: () => ({
-                single: async () => ({ data: { tier: 'free' }, error: null }),
+                single: async () => ({ data: { tier: 'free', expires_at: null }, error: null }),
               }),
             }),
             update: () => ({

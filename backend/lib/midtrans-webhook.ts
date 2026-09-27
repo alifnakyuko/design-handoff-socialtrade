@@ -1,7 +1,8 @@
 import crypto from 'crypto';
 import type { SupabaseClient } from '@supabase/supabase-js';
-import { tierRank, type Tier } from './tiers';
+import type { Tier } from './tiers';
 import type { Plan } from './pricing';
+import { calculateNewExpiry } from './membership';
 
 export type MidtransNotification = {
   order_id: string;
@@ -69,7 +70,7 @@ export async function handleMidtransNotification(
 
   const { data: userRow, error: userReadError } = await supabase
     .from('users')
-    .select('tier')
+    .select('tier, expires_at')
     .eq('id', order.user_id)
     .single();
 
@@ -78,13 +79,17 @@ export async function handleMidtransNotification(
   }
 
   const currentTier: Tier = (userRow?.tier as Tier) ?? 'free';
-  const purchasedTier = order.plan as Plan as Tier;
+  const currentExpiresAt = userRow?.expires_at ? new Date(userRow.expires_at) : null;
+  const purchasedPlan = order.plan as Plan;
 
-  if (tierRank(purchasedTier) > tierRank(currentTier)) {
-    const { error: tierUpdateError } = await supabase.from('users').update({ tier: purchasedTier }).eq('id', order.user_id);
-    if (tierUpdateError) {
-      return { status: 'write_failed' };
-    }
+  const newState = calculateNewExpiry(new Date(), { tier: currentTier, expiresAt: currentExpiresAt }, purchasedPlan);
+
+  const { error: tierUpdateError } = await supabase
+    .from('users')
+    .update({ tier: newState.tier, expires_at: newState.expiresAt ? newState.expiresAt.toISOString() : null })
+    .eq('id', order.user_id);
+  if (tierUpdateError) {
+    return { status: 'write_failed' };
   }
 
   return { status: 'updated' };
