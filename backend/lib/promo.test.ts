@@ -34,4 +34,36 @@ describe('validatePromo', () => {
     const supabase = fakeSupabase(null);
     expect(await validatePromo(supabase, 'DOESNOTEXIST', 'silver')).toEqual({ valid: false });
   });
+
+  it('returns valid when used_count is still below max_uses', async () => {
+    const supabase = fakeSupabase({
+      code: 'LIMITED', percent: 10, active: true, expires_at: '2099-01-01', max_uses: 5, used_count: 4,
+    });
+    expect(await validatePromo(supabase, 'LIMITED', 'silver')).toEqual({
+      valid: true, code: 'LIMITED', discountPct: 10, finalPrice: 1_350_000,
+    });
+  });
+
+  it('returns invalid once used_count reaches max_uses', async () => {
+    const supabase = fakeSupabase({
+      code: 'LIMITED', percent: 10, active: true, expires_at: '2099-01-01', max_uses: 5, used_count: 5,
+    });
+    expect(await validatePromo(supabase, 'LIMITED', 'silver')).toEqual({ valid: false });
+  });
+
+  it('returns valid for a plan included in applies_to_plan_ids', async () => {
+    const supabase = fakeSupabase({
+      code: 'GOLDONLY', percent: 10, active: true, expires_at: '2099-01-01', applies_to_plan_ids: ['gold', 'platinum'],
+    });
+    expect(await validatePromo(supabase, 'GOLDONLY', 'gold')).toEqual({
+      valid: true, code: 'GOLDONLY', discountPct: 10, finalPrice: 2_340_000,
+    });
+  });
+
+  it('returns invalid for a plan not included in applies_to_plan_ids', async () => {
+    const supabase = fakeSupabase({
+      code: 'GOLDONLY', percent: 10, active: true, expires_at: '2099-01-01', applies_to_plan_ids: ['gold', 'platinum'],
+    });
+    expect(await validatePromo(supabase, 'GOLDONLY', 'silver')).toEqual({ valid: false });
+  });
 });

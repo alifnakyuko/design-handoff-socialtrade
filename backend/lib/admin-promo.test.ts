@@ -36,7 +36,21 @@ describe('createPromoCode', () => {
       percent: 10,
       expires_at: '2026-12-31',
       active: true,
+      max_uses: null,
+      applies_to_plan_ids: null,
     });
+  });
+
+  it('inserts maxUses and appliesToPlanIds when provided', async () => {
+    const supabase = fakeSupabase();
+    await createPromoCode(supabase, {
+      code: 'GOLDONLY',
+      percent: 15,
+      expiresAt: '2026-12-31',
+      maxUses: 100,
+      appliesToPlanIds: ['gold', 'platinum'],
+    });
+    expect(supabase.inserted[0]).toMatchObject({ max_uses: 100, applies_to_plan_ids: ['gold', 'platinum'] });
   });
 });
 
@@ -94,6 +108,40 @@ describe('updatePromoCode', () => {
 
     await updatePromoCode(supabase, 'promo-1', { percent: 25 });
     expect(updated[0]).toEqual({ id: 'promo-1', patch: { percent: 25 } });
+  });
+
+  it('patches maxUses and appliesToPlanIds when provided', async () => {
+    const updated: { id: string; patch: any }[] = [];
+    const supabase = {
+      from: () => ({
+        update: (patch: any) => ({
+          eq: async (_col: string, id: string) => {
+            updated.push({ id, patch });
+            return { error: null };
+          },
+        }),
+      }),
+    } as any;
+
+    await updatePromoCode(supabase, 'promo-1', { maxUses: 50, appliesToPlanIds: ['silver'] });
+    expect(updated[0]).toEqual({ id: 'promo-1', patch: { max_uses: 50, applies_to_plan_ids: ['silver'] } });
+  });
+
+  it('can clear maxUses/appliesToPlanIds by explicitly passing null', async () => {
+    const updated: { id: string; patch: any }[] = [];
+    const supabase = {
+      from: () => ({
+        update: (patch: any) => ({
+          eq: async (_col: string, id: string) => {
+            updated.push({ id, patch });
+            return { error: null };
+          },
+        }),
+      }),
+    } as any;
+
+    await updatePromoCode(supabase, 'promo-1', { maxUses: null, appliesToPlanIds: null });
+    expect(updated[0]).toEqual({ id: 'promo-1', patch: { max_uses: null, applies_to_plan_ids: null } });
   });
 
   it('throws when the update fails', async () => {

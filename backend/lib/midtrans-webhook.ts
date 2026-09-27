@@ -36,7 +36,7 @@ export async function handleMidtransNotification(
 
   const { data: order, error } = await supabase
     .from('orders')
-    .select('id, user_id, plan, status')
+    .select('id, user_id, plan, status, promo_code')
     .eq('midtrans_order_id', notification.order_id)
     .single();
 
@@ -107,6 +107,7 @@ export async function handleMidtransNotification(
       p_expected_expires_at: rawExpiresAt,
       p_new_tier: newState.tier,
       p_new_expires_at: newState.expiresAt ? newState.expiresAt.toISOString() : null,
+      p_promo_code: order.promo_code ?? null,
     });
 
     if (rpcError) {

@@ -36,12 +36,13 @@ type Hook = { table: 'orders' | 'users'; mode: 'select' | 'update'; once?: boole
 // function operating on the same in-memory `state`, mirroring its precondition-then-both-
 // writes-or-neither semantics without needing a real Postgres to test against.
 function makeSupabase(
-  initial: { orders: Row[]; users: Row[] },
+  initial: { orders: Row[]; users: Row[]; promoCodes?: Row[] },
   opts: { forceError?: ForceError[]; hooks?: Hook[] } = {}
 ) {
   const state = {
     orders: initial.orders.map((r) => ({ ...r })),
     users: initial.users.map((r) => ({ ...r })),
+    promoCodes: (initial.promoCodes ?? []).map((r) => ({ ...r })),
   };
   const orderUpdates: Row[] = [];
   const userUpdates: Row[] = [];
@@ -174,6 +175,11 @@ function makeSupabase(
     orderUpdates.push({ status: 'paid', midtrans_transaction_id: params.p_transaction_id });
     userUpdates.push({ tier: params.p_new_tier, expires_at: params.p_new_expires_at });
 
+    if (params.p_promo_code) {
+      const promo = state.promoCodes.find((p) => p.code === params.p_promo_code);
+      if (promo) promo.used_count = (promo.used_count ?? 0) + 1;
+    }
+
     return { data: 'ok', error: null };
   }
 
@@ -229,6 +235,51 @@ describe('handleMidtransNotification', () => {
     expect(supabase.state.orders[0]).toMatchObject({ status: 'paid', midtrans_transaction_id: 'tx-1' });
     expect(supabase.state.users[0].tier).toBe('gold');
     expect(supabase.state.users[0].expires_at).not.toBeNull();
+  });
+
+  it('increments the promo code used_count on settlement, not before', async () => {
+    const notification = signedNotification({ transaction_status: 'settlement' });
+    const supabase = makeSupabase({
+      orders: [
+        { id: 'order-1', midtrans_order_id: 'ST-u1-123', user_id: 'u1', plan: 'gold', status: 'pending', promo_code: 'HEMAT10' },
+      ],
+      users: [{ id: 'u1', tier: 'free', expires_at: null }],
+      promoCodes: [{ code: 'HEMAT10', used_count: 3 }],
+    });
+
+    const result = await handleMidtransNotification(supabase, notification, SERVER_KEY);
+
+    expect(result).toEqual({ status: 'updated' });
+    expect(supabase.state.promoCodes[0].used_count).toBe(4);
+  });
+
+  it('does not increment used_count a second time when the settlement is redelivered', async () => {
+    const notification = signedNotification({ transaction_status: 'settlement' });
+    const supabase = makeSupabase({
+      orders: [
+        { id: 'order-1', midtrans_order_id: 'ST-u1-123', user_id: 'u1', plan: 'gold', status: 'pending', promo_code: 'HEMAT10' },
+      ],
+      users: [{ id: 'u1', tier: 'free', expires_at: null }],
+      promoCodes: [{ code: 'HEMAT10', used_count: 0 }],
+    });
+
+    await handleMidtransNotification(supabase, notification, SERVER_KEY);
+    await handleMidtransNotification(supabase, notification, SERVER_KEY);
+
+    expect(supabase.state.promoCodes[0].used_count).toBe(1);
+  });
+
+  it('does not touch used_count for an order with no promo code', async () => {
+    const notification = signedNotification({ transaction_status: 'settlement' });
+    const supabase = makeSupabase({
+      orders: [{ id: 'order-1', midtrans_order_id: 'ST-u1-123', user_id: 'u1', plan: 'gold', status: 'pending' }],
+      users: [{ id: 'u1', tier: 'free', expires_at: null }],
+      promoCodes: [{ code: 'HEMAT10', used_count: 0 }],
+    });
+
+    await handleMidtransNotification(supabase, notification, SERVER_KEY);
+
+    expect(supabase.state.promoCodes[0].used_count).toBe(0);
   });
 
   it('does not downgrade a lifetime user who buys a lower plan', async () => {

@@ -12,12 +12,20 @@ export async function validatePromo(
 ): Promise<PromoValidationResult> {
   const { data: promo, error } = await supabase
     .from('promo_codes')
-    .select('code, percent, active, expires_at')
+    .select('code, percent, active, expires_at, max_uses, used_count, applies_to_plan_ids')
     .eq('code', promoCode)
     .single();
 
   const todayDateOnly = new Date().toISOString().slice(0, 10);
   if (error || !promo || !promo.active || promo.expires_at < todayDateOnly) {
+    return { valid: false };
+  }
+
+  if (promo.max_uses != null && promo.used_count >= promo.max_uses) {
+    return { valid: false };
+  }
+
+  if (promo.applies_to_plan_ids != null && !promo.applies_to_plan_ids.includes(plan)) {
     return { valid: false };
   }
 
