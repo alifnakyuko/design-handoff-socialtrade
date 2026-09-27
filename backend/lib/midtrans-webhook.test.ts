@@ -23,6 +23,11 @@ function signedNotification(overrides: Partial<MidtransNotification>): MidtransN
 function fakeSupabase(opts: { orderRow?: any; userRow?: any }) {
   const orderUpdates: any[] = [];
   const userUpdates: any[] = [];
+  // Mutable so a test can call handleMidtransNotification twice against the same mock and
+  // have the second call see the status the first call already wrote — this is what makes
+  // the new conditional `.eq('status', 'pending')` guard actually testable end-to-end.
+  let currentOrderStatus = opts.orderRow?.status ?? 'pending';
+
   return {
     orderUpdates,
     userUpdates,
@@ -34,12 +39,28 @@ function fakeSupabase(opts: { orderRow?: any; userRow?: any }) {
               single: async () => ({ data: opts.orderRow ?? null, error: opts.orderRow ? null : { message: 'not found' } }),
             }),
           }),
-          update: (patch: any) => ({
-            eq: async () => {
-              orderUpdates.push(patch);
-              return { error: null };
-            },
-          }),
+          update: (patch: any) => {
+            orderUpdates.push(patch);
+            if (patch.status === 'paid') {
+              const matchedBeforeWrite = currentOrderStatus === 'pending';
+              if (matchedBeforeWrite) currentOrderStatus = 'paid';
+              return {
+                eq: () => ({
+                  eq: () => ({
+                    select: () =>
+                      Promise.resolve({
+                        data: matchedBeforeWrite ? [{ id: opts.orderRow?.id ?? 'order-1' }] : [],
+                        error: null,
+                      }),
+                  }),
+                }),
+              };
+            }
+            currentOrderStatus = patch.status;
+            return {
+              eq: async () => ({ error: null }),
+            };
+          },
         };
       }
       if (table === 'users') {
@@ -145,7 +166,11 @@ describe('handleMidtransNotification', () => {
               }),
             }),
             update: () => ({
-              eq: async () => ({ error: { message: 'db error' } }),
+              eq: () => ({
+                eq: () => ({
+                  select: () => Promise.resolve({ data: null, error: { message: 'db error' } }),
+                }),
+              }),
             }),
           };
         }
@@ -183,7 +208,11 @@ describe('handleMidtransNotification', () => {
               }),
             }),
             update: () => ({
-              eq: async () => ({ error: null }),
+              eq: () => ({
+                eq: () => ({
+                  select: () => Promise.resolve({ data: [{ id: 'order-1' }], error: null }),
+                }),
+              }),
             }),
           };
         }
@@ -209,6 +238,21 @@ describe('handleMidtransNotification', () => {
     const result = await handleMidtransNotification(supabase, notification, SERVER_KEY);
     expect(result).toEqual({ status: 'write_failed' });
     expect(userUpdates).toHaveLength(0);
+  });
+
+  it('does not grant membership time twice when Midtrans redelivers the same settlement (capture+settlement pair or a retry)', async () => {
+    const notification = signedNotification({ transaction_status: 'settlement' });
+    const supabase = fakeSupabase({
+      orderRow: { id: 'order-1', user_id: 'u1', plan: 'gold', status: 'pending' },
+      userRow: { tier: 'free', expires_at: null },
+    });
+
+    const first = await handleMidtransNotification(supabase, notification, SERVER_KEY);
+    const second = await handleMidtransNotification(supabase, notification, SERVER_KEY);
+
+    expect(first).toEqual({ status: 'updated' });
+    expect(second).toEqual({ status: 'updated' }); // still acks success so Midtrans stops retrying
+    expect(supabase.userUpdates).toHaveLength(1); // membership grant applied exactly once, not twice
   });
 
   it('ignores in-progress statuses like pending', async () => {

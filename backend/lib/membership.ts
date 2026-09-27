@@ -51,6 +51,10 @@ export function calculateNewExpiry(now: Date, current: MembershipState, purchase
 
   const remainingMs = current.expiresAt!.getTime() - now.getTime();
   const remainingDays = Math.ceil(remainingMs / DAY_MS);
+  // `current.tier` and `current.expiresAt` are independent fields, not type-enforced together —
+  // a 'free' tier reaching this branch with a non-null future expiresAt would be a
+  // data-consistency bug. The cast to Plan is safe today only because dailyRate throws on
+  // 'free' (which has no price/duration) rather than silently producing NaN.
   const remainingValue = remainingDays * dailyRate(current.tier as Plan);
   const newPlanDailyRate = dailyRate(purchasedPlan);
   const convertedDays = Math.floor(remainingValue / newPlanDailyRate);

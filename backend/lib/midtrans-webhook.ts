@@ -55,17 +55,31 @@ export async function handleMidtransNotification(
     return { status: 'updated' };
   }
 
-  const { error: paidUpdateError } = await supabase
+  // Atomically transition pending -> paid. The `.eq('status', 'pending')` guard makes this
+  // conditional: if the order was already paid by an earlier notification (Midtrans sends
+  // duplicates — capture then settlement for card payments, plus retries), this update
+  // matches zero rows and `updatedOrders` comes back empty. That is the idempotency signal:
+  // we must not re-run calculateNewExpiry and grant membership time twice for one purchase.
+  const { data: updatedOrders, error: paidUpdateError } = await supabase
     .from('orders')
     .update({
       status: 'paid',
       paid_at: new Date().toISOString(),
       midtrans_transaction_id: notification.transaction_id,
     })
-    .eq('id', order.id);
+    .eq('id', order.id)
+    .eq('status', 'pending')
+    .select('id');
 
   if (paidUpdateError) {
     return { status: 'write_failed' };
+  }
+
+  if (!updatedOrders || updatedOrders.length === 0) {
+    // Duplicate notification for an order already transitioned out of 'pending' by an
+    // earlier delivery. Acknowledge success to Midtrans (so it stops retrying) without
+    // re-applying the membership grant.
+    return { status: 'updated' };
   }
 
   const { data: userRow, error: userReadError } = await supabase
@@ -84,11 +98,11 @@ export async function handleMidtransNotification(
 
   const newState = calculateNewExpiry(new Date(), { tier: currentTier, expiresAt: currentExpiresAt }, purchasedPlan);
 
-  const { error: tierUpdateError } = await supabase
+  const { error: userUpdateError } = await supabase
     .from('users')
     .update({ tier: newState.tier, expires_at: newState.expiresAt ? newState.expiresAt.toISOString() : null })
     .eq('id', order.user_id);
-  if (tierUpdateError) {
+  if (userUpdateError) {
     return { status: 'write_failed' };
   }
 
