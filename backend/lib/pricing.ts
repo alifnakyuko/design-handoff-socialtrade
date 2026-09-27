@@ -7,10 +7,21 @@ export const PLAN_PRICES: Record<Plan, number> = {
   lifetime: 6_500_000,
 };
 
+export const PLAN_DURATIONS: Record<Plan, number | null> = {
+  silver: 120,
+  gold: 270,
+  platinum: 540,
+  lifetime: null,
+};
+
 export function basePriceFor(plan: Plan): number {
   return PLAN_PRICES[plan];
 }
 
 export function applyDiscount(baseAmount: number, percent: number): number {
   return Math.round(baseAmount * (1 - percent / 100));
+}
+
+export function durationDaysFor(plan: Plan): number | null {
+  return PLAN_DURATIONS[plan];
 }
