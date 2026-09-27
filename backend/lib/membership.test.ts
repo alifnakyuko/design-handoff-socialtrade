@@ -67,4 +67,24 @@ describe('calculateNewExpiry', () => {
     expect(result.tier).toBe('platinum');
     expect(result.expiresAt).toEqual(new Date(NOW.getTime() + (540 + 3) * DAY_MS));
   });
+
+  it('throws clear error if purchasedPlan is an unknown string (not a valid Plan)', () => {
+    expect(() => {
+      calculateNewExpiry(NOW, { tier: 'free', expiresAt: null }, 'invalid_plan' as Plan);
+    }).toThrow('Unexpected null or undefined duration for non-lifetime plan: invalid_plan');
+  });
+
+  it('throws clear error if current.tier is an unknown string during proration', () => {
+    const futureExpiry = new Date(NOW.getTime() + 60 * DAY_MS);
+    expect(() => {
+      calculateNewExpiry(NOW, { tier: 'invalid_tier' as Tier, expiresAt: futureExpiry }, 'gold');
+    }).toThrow('dailyRate requires a known plan with valid duration and price: invalid_tier');
+  });
+
+  it('throws clear error if purchasedPlan is an unknown string during proration', () => {
+    const futureExpiry = new Date(NOW.getTime() + 60 * DAY_MS);
+    expect(() => {
+      calculateNewExpiry(NOW, { tier: 'silver', expiresAt: futureExpiry }, 'unknown_plan' as Plan);
+    }).toThrow('Unexpected null or undefined duration for non-lifetime plan: unknown_plan');
+  });
 });

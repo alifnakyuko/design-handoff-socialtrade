@@ -10,10 +10,11 @@ const DAY_MS = 24 * 60 * 60 * 1000;
 
 function dailyRate(plan: Plan): number {
   const duration = durationDaysFor(plan);
-  if (duration === null) {
-    throw new Error(`dailyRate is undefined for plan without a duration: ${plan}`);
+  const basePrice = basePriceFor(plan);
+  if (duration == null || basePrice == null) {
+    throw new Error(`dailyRate requires a known plan with valid duration and price: ${plan}`);
   }
-  return basePriceFor(plan) / duration;
+  return basePrice / duration;
 }
 
 export function calculateNewExpiry(now: Date, current: MembershipState, purchasedPlan: Plan): MembershipState {
@@ -27,8 +28,8 @@ export function calculateNewExpiry(now: Date, current: MembershipState, purchase
   }
 
   const purchasedDurationDays = durationDaysFor(purchasedPlan);
-  if (purchasedDurationDays === null) {
-    throw new Error(`Unexpected null duration for non-lifetime plan: ${purchasedPlan}`);
+  if (purchasedDurationDays == null) {
+    throw new Error(`Unexpected null or undefined duration for non-lifetime plan: ${purchasedPlan}`);
   }
 
   const hasActiveMembership = current.expiresAt !== null && current.expiresAt.getTime() > now.getTime();
@@ -51,7 +52,8 @@ export function calculateNewExpiry(now: Date, current: MembershipState, purchase
   const remainingMs = current.expiresAt!.getTime() - now.getTime();
   const remainingDays = Math.ceil(remainingMs / DAY_MS);
   const remainingValue = remainingDays * dailyRate(current.tier as Plan);
-  const convertedDays = Math.floor(remainingValue / dailyRate(purchasedPlan));
+  const newPlanDailyRate = dailyRate(purchasedPlan);
+  const convertedDays = Math.floor(remainingValue / newPlanDailyRate);
 
   return {
     tier: purchasedPlan,
