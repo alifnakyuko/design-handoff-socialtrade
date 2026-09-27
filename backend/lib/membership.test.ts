@@ -1,4 +1,6 @@
 import { describe, it, expect } from 'vitest';
+import type { Plan } from './pricing';
+import type { Tier } from './tiers';
 import { calculateNewExpiry } from './membership';
 
 const DAY_MS = 24 * 60 * 60 * 1000;
