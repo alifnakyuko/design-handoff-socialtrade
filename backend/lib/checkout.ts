@@ -1,6 +1,7 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
-import { basePriceFor, applyDiscount, type Plan } from './pricing';
+import { basePriceFor, type Plan } from './pricing';
 import type { SnapClient } from './midtrans-snap';
+import { validatePromo } from './promo';
 
 export type CreateCheckoutInput = {
   userId: string;
@@ -23,19 +24,13 @@ export async function createCheckout(
   let appliedPromo: string | null = null;
 
   if (input.promoCode) {
-    const { data: promo, error } = await supabase
-      .from('promo_codes')
-      .select('code, percent, active, expires_at')
-      .eq('code', input.promoCode)
-      .single();
-
-    const todayDateOnly = new Date().toISOString().slice(0, 10);
-    if (error || !promo || !promo.active || promo.expires_at < todayDateOnly) {
+    const promoResult = await validatePromo(supabase, input.promoCode, input.plan);
+    if (!promoResult.valid) {
       return { status: 'invalid_promo' };
     }
 
-    finalAmount = applyDiscount(baseAmount, promo.percent);
-    appliedPromo = promo.code;
+    finalAmount = promoResult.finalPrice;
+    appliedPromo = promoResult.code;
   }
 
   const midtransOrderId = `ST-${input.userId.slice(0, 8)}-${Date.now()}`;
