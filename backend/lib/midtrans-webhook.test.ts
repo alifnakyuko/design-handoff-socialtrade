@@ -152,7 +152,7 @@ function makeSupabase(
     if (!order) {
       return { data: 'order_not_found', error: null };
     }
-    if (!['pending', 'failed'].includes(order.status)) {
+    if (!['pending', 'failed', 'expired'].includes(order.status)) {
       return { data: 'order_already_processed', error: null };
     }
 
@@ -335,6 +335,22 @@ describe('handleMidtransNotification', () => {
       SERVER_KEY
     );
     expect(settleResult).toEqual({ status: 'updated' });
+    expect(supabase.state.orders[0].status).toBe('paid');
+    expect(supabase.state.users[0].tier).toBe('gold');
+  });
+
+  it('grants membership for a late settlement on an order the pending-order-expiry cron already expired', async () => {
+    // The hourly expire-pending-orders cron sets status='expired' on stale pending orders.
+    // A settlement that still arrives afterward (the money did move) must not be silently
+    // dropped -- same class of fix as the deny-then-retry case above.
+    const supabase = makeSupabase({
+      orders: [{ id: 'order-1', midtrans_order_id: 'ST-u1-123', user_id: 'u1', plan: 'gold', status: 'expired' }],
+      users: [{ id: 'u1', tier: 'free', expires_at: null }],
+    });
+
+    const result = await handleMidtransNotification(supabase, signedNotification({ transaction_status: 'settlement' }), SERVER_KEY);
+
+    expect(result).toEqual({ status: 'updated' });
     expect(supabase.state.orders[0].status).toBe('paid');
     expect(supabase.state.users[0].tier).toBe('gold');
   });

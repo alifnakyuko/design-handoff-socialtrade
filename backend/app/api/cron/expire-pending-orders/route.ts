@@ -2,6 +2,8 @@ import { NextResponse } from 'next/server';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { checkCronAuth } from '@/lib/cron-auth';
 
+const PENDING_ORDER_TIMEOUT_MS = 24 * 60 * 60 * 1000;
+
 async function handleCronRequest(request: Request) {
   const authError = checkCronAuth(request);
   if (authError) {
@@ -9,19 +11,18 @@ async function handleCronRequest(request: Request) {
   }
 
   const supabase = createAdminClient();
-  const nowIso = new Date().toISOString();
+  const cutoffIso = new Date(Date.now() - PENDING_ORDER_TIMEOUT_MS).toISOString();
 
   const { data, error } = await supabase
-    .from('users')
-    .update({ tier: 'free', expires_at: null })
-    .lt('expires_at', nowIso)
-    .not('expires_at', 'is', null)
-    .neq('tier', 'free')
+    .from('orders')
+    .update({ status: 'expired' })
+    .eq('status', 'pending')
+    .lt('created_at', cutoffIso)
     .select('id');
 
   if (error) {
-    console.error('Failed to expire memberships:', error);
-    return NextResponse.json({ error: 'Failed to expire memberships' }, { status: 500 });
+    console.error('Failed to expire pending orders:', error);
+    return NextResponse.json({ error: 'Failed to expire pending orders' }, { status: 500 });
   }
 
   return NextResponse.json({ expired_count: data?.length ?? 0 });
