@@ -4,7 +4,7 @@ import { createAdminClient } from '@/lib/supabase/admin';
 export async function POST(request: Request) {
   const cronSecret = process.env.CRON_SECRET;
   if (!cronSecret) {
-    throw new Error('CRON_SECRET must be set');
+    return NextResponse.json({ error: 'CRON_SECRET is not set' }, { status: 500 });
   }
 
   const authHeader = request.headers.get('authorization');

@@ -29,6 +29,15 @@ describe('POST /api/cron/expire-memberships', () => {
     expect(response.status).toBe(401);
   });
 
+  it('returns 500 when CRON_SECRET is not set', async () => {
+    delete process.env.CRON_SECRET;
+    const response = await POST(makeRequest('Bearer test-secret'));
+    const body = await response.json();
+
+    expect(response.status).toBe(500);
+    expect(body).toEqual({ error: 'CRON_SECRET is not set' });
+  });
+
   it('resets expired users to free tier and returns the count', async () => {
     mockAdminClient.from.mockReturnValue({
       update: () => ({
