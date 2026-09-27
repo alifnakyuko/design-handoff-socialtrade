@@ -2,7 +2,7 @@ import { describe, it, expect, vi } from 'vitest';
 import { sendContentNotification } from './notifications';
 import type { EmailClient } from './email';
 
-function fakeSupabase(users: { email: string; tier: string }[]) {
+function fakeSupabase(users: { email: string; tier: string; expires_at?: string | null }[]) {
   return {
     from: () => ({
       select: async () => ({ data: users, error: null }),
@@ -23,9 +23,9 @@ function fakeEmailClient(): EmailClient & { calls: any[] } {
 describe('sendContentNotification', () => {
   it('emails only members whose tier meets the required tier, and returns the count', async () => {
     const supabase = fakeSupabase([
-      { email: 'free@x.com', tier: 'free' },
-      { email: 'gold@x.com', tier: 'gold' },
-      { email: 'lifetime@x.com', tier: 'lifetime' },
+      { email: 'free@x.com', tier: 'free', expires_at: null },
+      { email: 'gold@x.com', tier: 'gold', expires_at: null },
+      { email: 'lifetime@x.com', tier: 'lifetime', expires_at: null },
     ]);
     const emailClient = fakeEmailClient();
 
@@ -43,7 +43,7 @@ describe('sendContentNotification', () => {
   });
 
   it('does not call the email client and returns 0 when no members are eligible', async () => {
-    const supabase = fakeSupabase([{ email: 'free@x.com', tier: 'free' }]);
+    const supabase = fakeSupabase([{ email: 'free@x.com', tier: 'free', expires_at: null }]);
     const emailClient = fakeEmailClient();
 
     const count = await sendContentNotification(supabase, emailClient, {
@@ -54,5 +54,23 @@ describe('sendContentNotification', () => {
 
     expect(count).toBe(0);
     expect(emailClient.calls).toHaveLength(0);
+  });
+
+  it('excludes a member whose expires_at has already lapsed even though their tier column has not been reset yet', async () => {
+    const pastExpiry = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString();
+    const supabase = fakeSupabase([
+      { email: 'lapsed-gold@x.com', tier: 'gold', expires_at: pastExpiry },
+      { email: 'active-gold@x.com', tier: 'gold', expires_at: null },
+    ]);
+    const emailClient = fakeEmailClient();
+
+    const count = await sendContentNotification(supabase, emailClient, {
+      title: 'Gold report',
+      type: 'article',
+      required_tier: 'gold',
+    });
+
+    expect(count).toBe(1);
+    expect(emailClient.calls.map((c) => c.to[0])).toEqual(['active-gold@x.com']);
   });
 });

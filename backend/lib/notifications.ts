@@ -13,12 +13,18 @@ export async function sendContentNotification(
   emailClient: EmailClient,
   item: NotifiableContent
 ): Promise<number> {
-  const { data: users, error } = await supabase.from('users').select('email, tier');
+  const { data: users, error } = await supabase.from('users').select('email, tier, expires_at');
   if (error || !users) return 0;
 
-  const eligible = (users as { email: string; tier: Tier }[]).filter(
-    (u) => tierRank(u.tier) >= tierRank(item.required_tier)
-  );
+  const now = Date.now();
+  const eligible = (users as { email: string; tier: Tier; expires_at: string | null }[]).filter((u) => {
+    // Same backstop as lib/current-user.ts: the daily expiry cron may not have reset
+    // `tier` yet even though the membership has lapsed, so re-check expires_at here too
+    // rather than notifying someone whose access has already expired.
+    const isExpired = u.expires_at != null && new Date(u.expires_at).getTime() <= now;
+    const effectiveTier: Tier = isExpired ? 'free' : u.tier;
+    return tierRank(effectiveTier) >= tierRank(item.required_tier);
+  });
   if (eligible.length === 0) return 0;
 
   await Promise.all(
