@@ -12,7 +12,8 @@ Backend for the Social Trade membership platform. See `../docs/superpowers/specs
    ```
 3. In the Supabase dashboard, configure Auth → SMTP to send real password-reset emails (or use Supabase's default email sending for testing).
 4. In your Midtrans dashboard, register this deployment's webhook URL (`https://<your-domain>/api/webhooks/midtrans`) as the payment notification URL.
-5. In Resend, verify the sending domain used in `lib/email.ts` (`notifikasi@socialtrade.id`) before content-push emails will deliver.
+5. Generate a random value for `CRON_SECRET` (e.g. `openssl rand -hex 32`) and set it in both `.env.local` and your Vercel project's environment variables. Vercel Cron calls `POST /api/cron/expire-memberships` daily at 00:05 WIB with this value as a bearer token; without it the route rejects every request with 401.
+6. In Resend, verify the sending domain used in `lib/email.ts` (`notifikasi@socialtrade.id`) before content-push emails will deliver.
 
 ## Creating the first admin user
 
