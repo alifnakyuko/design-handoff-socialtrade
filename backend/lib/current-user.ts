@@ -3,7 +3,10 @@ import type { Tier } from './tiers';
 
 export type CurrentUser = {
   id: string;
+  email: string;
+  name: string;
   tier: Tier;
+  expiresAt: string | null;
   isAdmin: boolean;
 };
 
@@ -13,7 +16,7 @@ export async function getCurrentUser(supabase: SupabaseClient): Promise<CurrentU
 
   const { data: row, error } = await supabase
     .from('users')
-    .select('tier, is_admin, expires_at')
+    .select('email, name, tier, is_admin, expires_at')
     .eq('id', authData.user.id)
     .single();
 
@@ -25,6 +28,14 @@ export async function getCurrentUser(supabase: SupabaseClient): Promise<CurrentU
   // so access control doesn't depend entirely on the cron having already run.
   const isExpired = row.expires_at != null && new Date(row.expires_at).getTime() <= Date.now();
   const effectiveTier: Tier = isExpired ? 'free' : (row.tier as Tier);
+  const effectiveExpiresAt: string | null = isExpired ? null : (row.expires_at as string | null);
 
-  return { id: authData.user.id, tier: effectiveTier, isAdmin: row.is_admin as boolean };
+  return {
+    id: authData.user.id,
+    email: row.email as string,
+    name: row.name as string,
+    tier: effectiveTier,
+    expiresAt: effectiveExpiresAt,
+    isAdmin: row.is_admin as boolean,
+  };
 }
