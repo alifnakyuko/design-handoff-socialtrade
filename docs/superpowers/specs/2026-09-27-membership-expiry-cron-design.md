@@ -73,3 +73,9 @@ This function is pure (takes `now` as a parameter, no I/O) so it can be unit-tes
 - Unit tests for `calculateNewExpiry` covering: renew before expiry (stacking), renew after expiry (from now), upgrade mid-cycle (proration), downgrade mid-cycle (proration), buy lifetime from any state, first purchase from free.
 - Route test for `/api/cron/expire-memberships`: seeded user with past `expires_at` gets reset; seeded user with future `expires_at` is untouched; request without valid `CRON_SECRET` gets 401.
 - Existing webhook tests updated to assert `expires_at` is set correctly alongside `tier`.
+
+## Deployment Note: Existing Paid Users
+
+After this migration runs, every existing paid user has `expires_at = null` — the cron's `where expires_at is not null` filter means they will never be expired automatically. This fails permissive (no one loses access unexpectedly) rather than failing closed, which is the safer default, but it is not automatic and must be handled before this feature is relied upon for revenue enforcement.
+
+Before enabling the cron job in production, backfill `expires_at` for existing paid users — e.g. via a one-off SQL script that sets each user's `expires_at` from their latest `paid` order's `paid_at` plus that order's plan duration. This is intentionally left as a manual pre-deployment step rather than an automated migration, since getting historical backfill math wrong is a bigger risk than a short delay before enforcement begins.

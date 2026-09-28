@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { basePriceFor, applyDiscount } from './pricing';
+import { basePriceFor, applyDiscount, durationDaysFor } from './pricing';
 
 describe('basePriceFor', () => {
   it('returns the fixed IDR price for each plan', () => {
@@ -17,5 +17,23 @@ describe('applyDiscount', () => {
 
   it('returns the original amount for 0 percent', () => {
     expect(applyDiscount(2_600_000, 0)).toBe(2_600_000);
+  });
+});
+
+describe('durationDaysFor', () => {
+  it('returns 120 for silver', () => {
+    expect(durationDaysFor('silver')).toBe(120);
+  });
+
+  it('returns 270 for gold', () => {
+    expect(durationDaysFor('gold')).toBe(270);
+  });
+
+  it('returns 540 for platinum', () => {
+    expect(durationDaysFor('platinum')).toBe(540);
+  });
+
+  it('returns null for lifetime', () => {
+    expect(durationDaysFor('lifetime')).toBeNull();
   });
 });

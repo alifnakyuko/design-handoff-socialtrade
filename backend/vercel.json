@@ -1,0 +1,8 @@
+{
+  "crons": [
+    {
+      "path": "/api/cron/expire-memberships",
+      "schedule": "5 17 * * *"
+    }
+  ]
+}
