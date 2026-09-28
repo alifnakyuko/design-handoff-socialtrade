@@ -73,4 +73,18 @@ describe('sendContentNotification', () => {
     expect(count).toBe(1);
     expect(emailClient.calls.map((c) => c.to[0])).toEqual(['active-gold@x.com']);
   });
+
+  it('HTML-escapes the content title before interpolating it into the notification email', async () => {
+    const supabase = fakeSupabase([{ email: 'gold@x.com', tier: 'gold', expires_at: null }]);
+    const emailClient = fakeEmailClient();
+
+    await sendContentNotification(supabase, emailClient, {
+      title: '<img src=x onerror=alert(1)>',
+      type: 'article',
+      required_tier: 'gold',
+    });
+
+    expect(emailClient.calls[0].html).not.toContain('<img');
+    expect(emailClient.calls[0].html).toContain('&lt;img');
+  });
 });
