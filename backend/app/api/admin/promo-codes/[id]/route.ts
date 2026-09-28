@@ -30,16 +30,18 @@ export async function PATCH(request: Request, { params }: { params: { id: string
   if (active !== undefined && typeof active !== 'boolean') {
     return NextResponse.json({ error: 'active must be a boolean' }, { status: 400 });
   }
-  if (maxUses !== undefined && maxUses !== null && (typeof maxUses !== 'number' || maxUses < 1)) {
-    return NextResponse.json({ error: 'maxUses must be a positive number or null' }, { status: 400 });
+  if (maxUses !== undefined && maxUses !== null && (!Number.isInteger(maxUses) || maxUses < 1)) {
+    return NextResponse.json({ error: 'maxUses must be a positive integer or null' }, { status: 400 });
   }
   if (
     appliesToPlanIds !== undefined &&
     appliesToPlanIds !== null &&
-    (!Array.isArray(appliesToPlanIds) || !appliesToPlanIds.every((p) => VALID_PLAN_CODES.includes(p)))
+    (!Array.isArray(appliesToPlanIds) ||
+      appliesToPlanIds.length === 0 ||
+      !appliesToPlanIds.every((p) => VALID_PLAN_CODES.includes(p)))
   ) {
     return NextResponse.json(
-      { error: `appliesToPlanIds must be an array of plan codes (${VALID_PLAN_CODES.join(', ')}) or null` },
+      { error: `appliesToPlanIds must be a non-empty array of plan codes (${VALID_PLAN_CODES.join(', ')}) or null` },
       { status: 400 }
     );
   }

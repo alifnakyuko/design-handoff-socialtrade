@@ -465,6 +465,40 @@ describe('handleMidtransNotification', () => {
     expect(supabase.state.users[0].tier).toBe('gold'); // final state reflects the retry's upgrade from silver, not free
   });
 
+  it('increments used_count exactly once even when the grant needed a concurrency retry', async () => {
+    // Same race as above, but the winning order also used a promo code -- the rejected
+    // first rpc call must not increment used_count, only the successful retry should.
+    const supabase = makeSupabase(
+      {
+        orders: [
+          { id: 'order-1', midtrans_order_id: 'ST-u1-123', user_id: 'u1', plan: 'gold', status: 'pending', promo_code: 'HEMAT10' },
+        ],
+        users: [{ id: 'u1', tier: 'free', expires_at: null }],
+        promoCodes: [{ code: 'HEMAT10', used_count: 0 }],
+      },
+      {
+        hooks: [
+          {
+            table: 'users',
+            mode: 'select',
+            once: true,
+            fn: () => {
+              supabase.state.users[0].tier = 'silver';
+              supabase.state.users[0].expires_at = new Date(Date.now() + 100 * 24 * 60 * 60 * 1000).toISOString();
+            },
+          },
+        ],
+      }
+    );
+
+    const result = await handleMidtransNotification(supabase, signedNotification({ transaction_status: 'settlement' }), SERVER_KEY);
+
+    expect(result).toEqual({ status: 'updated' });
+    expect(supabase.rpcCalls).toHaveLength(2);
+    expect(supabase.rpcCalls[0].params.p_promo_code).toBe('HEMAT10');
+    expect(supabase.state.promoCodes[0].used_count).toBe(1);
+  });
+
   it('rpc precondition matches on the exact stored expires_at value, including sub-millisecond precision', async () => {
     // Real Postgres/PostgREST timestamptz values can carry microsecond precision (e.g.
     // "...123456Z"), which `new Date(x).toISOString()` always collapses to millisecond

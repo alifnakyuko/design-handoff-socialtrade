@@ -68,9 +68,11 @@ export async function handleMidtransNotification(
   const purchasedPlan = order.plan as Plan;
 
   // The order-paid transition and the membership grant are applied atomically by the
-  // apply_membership_grant() Postgres function (see supabase/migrations/0003_*.sql): it
-  // locks both rows and only writes if the order is still pending/failed AND the user's
-  // tier/expires_at are still exactly what was read below. This closes the crash window an
+  // apply_membership_grant() Postgres function (see supabase/migrations/0003_apply_membership_grant.sql,
+  // 0005_grant_accepts_expired_orders.sql, and 0006_promo_quota_and_plan_restriction.sql): it
+  // locks both rows and only writes if the order is still pending/failed/expired AND the
+  // user's tier/expires_at are still exactly what was read below, optionally incrementing the
+  // used promo code's used_count in the same transaction. This closes the crash window an
   // earlier version of this code had between two separate writes, and replaces an
   // application-level optimistic-concurrency retry with a real row lock. calculateNewExpiry
   // itself stays in TypeScript -- the database function does not duplicate that logic, it

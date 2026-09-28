@@ -11,6 +11,17 @@ alter table public.promo_codes
 -- transaction as the order-paid/grant writes, when the order used a promo code. This keeps
 -- "used_count only increments on actual payment" true even under concurrent settlements,
 -- without needing a second round-trip from the webhook.
+--
+-- Postgres identifies a function by name + argument *type list*, and CREATE OR REPLACE
+-- cannot widen that list -- adding p_promo_code below would otherwise create a second,
+-- distinct 9-argument function alongside the old 8-argument one instead of truly replacing
+-- it, leaving both callable (ambiguous during the deploy-order gap the 0003 header already
+-- warns about, and a permanent stale copy afterward). Drop the old signature explicitly
+-- first so there is only ever one apply_membership_grant.
+drop function if exists public.apply_membership_grant(
+  uuid, timestamptz, text, uuid, text, timestamptz, text, timestamptz
+);
+
 create or replace function public.apply_membership_grant(
   p_order_id uuid,
   p_paid_at timestamptz,
