@@ -207,6 +207,19 @@ describe('verifyMidtransSignature', () => {
   });
 });
 
+function fakeTelegramClient(opts: { inviteLink?: string | Error } = {}) {
+  const calls: any[] = [];
+  return {
+    calls,
+    createOneTimeInviteLink: async (name: string) => {
+      calls.push(name);
+      if (opts.inviteLink instanceof Error) throw opts.inviteLink;
+      return opts.inviteLink ?? 'https://t.me/+default';
+    },
+    kickFromGroup: async () => {},
+  };
+}
+
 describe('handleMidtransNotification', () => {
   it('returns invalid_signature and makes no updates when the signature is wrong', async () => {
     const notification = signedNotification({});
@@ -282,6 +295,50 @@ describe('handleMidtransNotification', () => {
     await handleMidtransNotification(supabase, notification, SERVER_KEY);
 
     expect(supabase.state.promoCodes[0].used_count).toBe(0);
+  });
+
+  it('generates a Telegram invite link and stores it on the order when the grant succeeds', async () => {
+    const notification = signedNotification({ transaction_status: 'settlement' });
+    const supabase = makeSupabase({
+      orders: [{ id: 'order-1', midtrans_order_id: 'ST-u1-123', user_id: 'u1', plan: 'gold', status: 'pending' }],
+      users: [{ id: 'u1', tier: 'free', expires_at: null, telegram_user_id: null }],
+    });
+    const telegram = fakeTelegramClient({ inviteLink: 'https://t.me/+abc123' });
+
+    const result = await handleMidtransNotification(supabase, notification, SERVER_KEY, telegram);
+
+    expect(result).toEqual({ status: 'updated' });
+    expect(telegram.calls).toEqual(['order-1']);
+    expect(supabase.state.orders[0].telegram_invite_link).toBe('https://t.me/+abc123');
+  });
+
+  it('does not request a new invite link for a user already linked to Telegram', async () => {
+    const notification = signedNotification({ transaction_status: 'settlement' });
+    const supabase = makeSupabase({
+      orders: [{ id: 'order-1', midtrans_order_id: 'ST-u1-123', user_id: 'u1', plan: 'gold', status: 'pending' }],
+      users: [{ id: 'u1', tier: 'free', expires_at: null, telegram_user_id: 555 }],
+    });
+    const telegram = fakeTelegramClient();
+
+    const result = await handleMidtransNotification(supabase, notification, SERVER_KEY, telegram);
+
+    expect(result).toEqual({ status: 'updated' });
+    expect(telegram.calls).toHaveLength(0);
+    expect(supabase.state.orders[0].telegram_invite_link).toBeUndefined();
+  });
+
+  it('still succeeds even if generating the Telegram invite link fails', async () => {
+    const notification = signedNotification({ transaction_status: 'settlement' });
+    const supabase = makeSupabase({
+      orders: [{ id: 'order-1', midtrans_order_id: 'ST-u1-123', user_id: 'u1', plan: 'gold', status: 'pending' }],
+      users: [{ id: 'u1', tier: 'free', expires_at: null, telegram_user_id: null }],
+    });
+    const telegram = fakeTelegramClient({ inviteLink: new Error('Telegram API down') });
+
+    const result = await handleMidtransNotification(supabase, notification, SERVER_KEY, telegram);
+
+    expect(result).toEqual({ status: 'updated' });
+    expect(supabase.state.users[0].tier).toBe('gold');
   });
 
   it('does not downgrade a lifetime user who buys a lower plan', async () => {

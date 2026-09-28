@@ -3,6 +3,7 @@ import type { SupabaseClient } from '@supabase/supabase-js';
 import type { Tier } from './tiers';
 import type { Plan } from './pricing';
 import { calculateNewExpiry } from './membership';
+import type { TelegramClient } from './telegram';
 
 export type MidtransNotification = {
   order_id: string;
@@ -28,7 +29,8 @@ type GrantRpcResult = 'ok' | 'order_already_processed' | 'order_not_found' | 'us
 export async function handleMidtransNotification(
   supabase: SupabaseClient,
   notification: MidtransNotification,
-  serverKey: string
+  serverKey: string,
+  telegramClient?: TelegramClient
 ): Promise<{ status: 'ignored' | 'invalid_signature' | 'order_not_found' | 'updated' | 'write_failed' }> {
   if (!verifyMidtransSignature(notification, serverKey)) {
     return { status: 'invalid_signature' };
@@ -80,7 +82,7 @@ export async function handleMidtransNotification(
   for (let attempt = 0; attempt < MAX_GRANT_ATTEMPTS; attempt++) {
     const { data: userRow, error: userReadError } = await supabase
       .from('users')
-      .select('tier, expires_at')
+      .select('tier, expires_at, telegram_user_id')
       .eq('id', order.user_id)
       .single();
 
@@ -120,6 +122,17 @@ export async function handleMidtransNotification(
     const result = rpcResult as GrantRpcResult;
 
     if (result === 'ok') {
+      // Best-effort: generate a personal one-time invite link so the member can join the
+      // Telegram group, unless they're already linked (already joined once before). A
+      // failure here must not fail the payment -- the grant already succeeded.
+      if (telegramClient && !userRow?.telegram_user_id) {
+        try {
+          const inviteLink = await telegramClient.createOneTimeInviteLink(order.id);
+          await supabase.from('orders').update({ telegram_invite_link: inviteLink }).eq('id', order.id);
+        } catch (telegramError) {
+          console.error('Failed to create Telegram invite link for order', order.id, telegramError);
+        }
+      }
       return { status: 'updated' };
     }
     if (result === 'order_already_processed') {

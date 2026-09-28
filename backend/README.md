@@ -17,6 +17,17 @@ Backend for the Social Trade membership platform. See `../docs/superpowers/specs
 6. In Resend, verify the sending domain used in `lib/email.ts` (`notifikasi@socialtrade.id`) before content-push emails (and the new signup welcome email) will deliver.
 7. Set `BUNNY_STREAM_API_KEY` and `BUNNY_LIBRARY_ID` for `GET /api/videos/:id/play` (signed playback URLs, `lib/video-provider.ts`). **This was built without live Bunny Stream credentials to test against** — the token-authentication URL construction follows Bunny's publicly documented scheme but has not been verified end-to-end. Confirm it against a real Bunny Stream library and https://docs.bunny.net/docs/stream-embed-view-token-authentication before relying on it in production.
 
+8. **Telegram group auto-invite/auto-kick (optional feature — requires you to create the bot):**
+   - Create a bot via [@BotFather](https://t.me/BotFather), add it to your premium Telegram group as an admin with "Ban users" and "Invite users via link" permissions.
+   - Set `TELEGRAM_BOT_TOKEN` and `TELEGRAM_GROUP_ID` (the group's chat id, e.g. `-100xxxxxxxxxx`).
+   - Generate a random `TELEGRAM_WEBHOOK_SECRET` and register the webhook once by calling (replace placeholders):
+     ```bash
+     curl "https://api.telegram.org/bot<TELEGRAM_BOT_TOKEN>/setWebhook?url=https://<your-domain>/api/webhooks/telegram&secret_token=<TELEGRAM_WEBHOOK_SECRET>&allowed_updates=%5B%22chat_member%22%5D"
+     ```
+     `allowed_updates=["chat_member"]` is required — without it Telegram won't send the join events this feature listens for.
+   - This whole feature degrades gracefully if left unconfigured: a successful payment still grants membership even if no Telegram invite link could be generated (logged, not fatal), and the expiry cron still expires memberships even if it can't reach Telegram to kick anyone.
+   - **Not verified against a live bot/group** — built from Telegram's public Bot API docs (https://core.telegram.org/bots/api) without a real bot token to test against. Confirm `createChatInviteLink`, `banChatMember`/`unbanChatMember`, and the `chat_member` webhook payload shape against a real bot before relying on this.
+
 ## Creating the first admin user
 
 There is no self-service way to become an admin — this is intentional (no client-supplied field can ever grant admin access). After a user signs up normally via `POST /api/auth/signup`, promote them to admin manually in the Supabase SQL editor:

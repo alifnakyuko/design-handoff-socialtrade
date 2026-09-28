@@ -5,6 +5,11 @@ vi.mock('@/lib/supabase/admin', () => ({
   createAdminClient: () => mockAdminClient,
 }));
 
+const kickFromGroupMock = vi.fn();
+vi.mock('@/lib/telegram', () => ({
+  createTelegramClient: () => ({ kickFromGroup: kickFromGroupMock }),
+}));
+
 import { GET, POST } from './route';
 
 function makeRequest(authHeader?: string): Request {
@@ -17,6 +22,7 @@ describe('GET /api/cron/expire-memberships', () => {
   beforeEach(() => {
     process.env.CRON_SECRET = 'test-secret';
     mockAdminClient.from.mockReset();
+    kickFromGroupMock.mockReset();
   });
 
   it('returns 401 when the authorization header is missing', async () => {
@@ -56,7 +62,14 @@ describe('GET /api/cron/expire-memberships', () => {
                   neq: (col3: string, val3: string) => {
                     neqSpy(col3, val3);
                     return {
-                      select: () => Promise.resolve({ data: [{ id: 'u1' }, { id: 'u2' }], error: null }),
+                      select: () =>
+                      Promise.resolve({
+                        data: [
+                          { id: 'u1', telegram_user_id: 111 },
+                          { id: 'u2', telegram_user_id: null },
+                        ],
+                        error: null,
+                      }),
                     };
                   },
                 };
@@ -76,6 +89,30 @@ describe('GET /api/cron/expire-memberships', () => {
     expect(ltSpy).toHaveBeenCalledWith('expires_at', expect.any(String));
     expect(notSpy).toHaveBeenCalledWith('expires_at', 'is', null);
     expect(neqSpy).toHaveBeenCalledWith('tier', 'free');
+    // Only the user with a linked Telegram account gets kicked.
+    expect(kickFromGroupMock).toHaveBeenCalledTimes(1);
+    expect(kickFromGroupMock).toHaveBeenCalledWith(111);
+  });
+
+  it('does not fail the cron when kicking an expired user from Telegram fails', async () => {
+    kickFromGroupMock.mockRejectedValueOnce(new Error('Telegram API down'));
+    mockAdminClient.from.mockReturnValue({
+      update: () => ({
+        lt: () => ({
+          not: () => ({
+            neq: () => ({
+              select: () => Promise.resolve({ data: [{ id: 'u1', telegram_user_id: 111 }], error: null }),
+            }),
+          }),
+        }),
+      }),
+    });
+
+    const response = await GET(makeRequest('Bearer test-secret'));
+    const body = await response.json();
+
+    expect(response.status).toBe(200);
+    expect(body).toEqual({ expired_count: 1 });
   });
 
   it('returns 500 when the database update fails', async () => {
