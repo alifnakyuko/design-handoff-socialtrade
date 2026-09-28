@@ -4,7 +4,7 @@ import { sendContentNotification } from './notifications';
 import type { Tier } from './tiers';
 
 export type PublishContentInput = {
-  type: 'watchlist' | 'article';
+  type: 'watchlist' | 'article' | 'video';
   title: string;
   required_tier: Tier;
   payload: Record<string, unknown>;

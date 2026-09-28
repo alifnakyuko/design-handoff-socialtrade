@@ -3,6 +3,7 @@ import type { SupabaseClient } from '@supabase/supabase-js';
 import type { Tier } from './tiers';
 import type { Plan } from './pricing';
 import { calculateNewExpiry } from './membership';
+import type { TelegramClient } from './telegram';
 
 export type MidtransNotification = {
   order_id: string;
@@ -28,7 +29,8 @@ type GrantRpcResult = 'ok' | 'order_already_processed' | 'order_not_found' | 'us
 export async function handleMidtransNotification(
   supabase: SupabaseClient,
   notification: MidtransNotification,
-  serverKey: string
+  serverKey: string,
+  telegramClient?: TelegramClient
 ): Promise<{ status: 'ignored' | 'invalid_signature' | 'order_not_found' | 'updated' | 'write_failed' }> {
   if (!verifyMidtransSignature(notification, serverKey)) {
     return { status: 'invalid_signature' };
@@ -36,7 +38,7 @@ export async function handleMidtransNotification(
 
   const { data: order, error } = await supabase
     .from('orders')
-    .select('id, user_id, plan, status')
+    .select('id, user_id, plan, status, promo_code')
     .eq('midtrans_order_id', notification.order_id)
     .single();
 
@@ -56,7 +58,7 @@ export async function handleMidtransNotification(
     // that a different (earlier or concurrent) notification already marked 'paid'.
     const { error: failedUpdateError } = await supabase
       .from('orders')
-      .update({ status: 'failed' })
+      .update({ status: 'failed', raw_webhook: notification })
       .eq('id', order.id)
       .eq('status', 'pending');
     if (failedUpdateError) {
@@ -68,9 +70,11 @@ export async function handleMidtransNotification(
   const purchasedPlan = order.plan as Plan;
 
   // The order-paid transition and the membership grant are applied atomically by the
-  // apply_membership_grant() Postgres function (see supabase/migrations/0003_*.sql): it
-  // locks both rows and only writes if the order is still pending/failed AND the user's
-  // tier/expires_at are still exactly what was read below. This closes the crash window an
+  // apply_membership_grant() Postgres function (see supabase/migrations/0003_apply_membership_grant.sql,
+  // 0005_grant_accepts_expired_orders.sql, and 0006_promo_quota_and_plan_restriction.sql): it
+  // locks both rows and only writes if the order is still pending/failed/expired AND the
+  // user's tier/expires_at are still exactly what was read below, optionally incrementing the
+  // used promo code's used_count in the same transaction. This closes the crash window an
   // earlier version of this code had between two separate writes, and replaces an
   // application-level optimistic-concurrency retry with a real row lock. calculateNewExpiry
   // itself stays in TypeScript -- the database function does not duplicate that logic, it
@@ -78,7 +82,7 @@ export async function handleMidtransNotification(
   for (let attempt = 0; attempt < MAX_GRANT_ATTEMPTS; attempt++) {
     const { data: userRow, error: userReadError } = await supabase
       .from('users')
-      .select('tier, expires_at')
+      .select('tier, expires_at, telegram_user_id')
       .eq('id', order.user_id)
       .single();
 
@@ -107,6 +111,8 @@ export async function handleMidtransNotification(
       p_expected_expires_at: rawExpiresAt,
       p_new_tier: newState.tier,
       p_new_expires_at: newState.expiresAt ? newState.expiresAt.toISOString() : null,
+      p_promo_code: order.promo_code ?? null,
+      p_raw_webhook: notification,
     });
 
     if (rpcError) {
@@ -116,6 +122,17 @@ export async function handleMidtransNotification(
     const result = rpcResult as GrantRpcResult;
 
     if (result === 'ok') {
+      // Best-effort: generate a personal one-time invite link so the member can join the
+      // Telegram group, unless they're already linked (already joined once before). A
+      // failure here must not fail the payment -- the grant already succeeded.
+      if (telegramClient && !userRow?.telegram_user_id) {
+        try {
+          const inviteLink = await telegramClient.createOneTimeInviteLink(order.id);
+          await supabase.from('orders').update({ telegram_invite_link: inviteLink }).eq('id', order.id);
+        } catch (telegramError) {
+          console.error('Failed to create Telegram invite link for order', order.id, telegramError);
+        }
+      }
       return { status: 'updated' };
     }
     if (result === 'order_already_processed') {

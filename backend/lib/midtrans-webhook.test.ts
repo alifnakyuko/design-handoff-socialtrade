@@ -36,12 +36,13 @@ type Hook = { table: 'orders' | 'users'; mode: 'select' | 'update'; once?: boole
 // function operating on the same in-memory `state`, mirroring its precondition-then-both-
 // writes-or-neither semantics without needing a real Postgres to test against.
 function makeSupabase(
-  initial: { orders: Row[]; users: Row[] },
+  initial: { orders: Row[]; users: Row[]; promoCodes?: Row[] },
   opts: { forceError?: ForceError[]; hooks?: Hook[] } = {}
 ) {
   const state = {
     orders: initial.orders.map((r) => ({ ...r })),
     users: initial.users.map((r) => ({ ...r })),
+    promoCodes: (initial.promoCodes ?? []).map((r) => ({ ...r })),
   };
   const orderUpdates: Row[] = [];
   const userUpdates: Row[] = [];
@@ -152,7 +153,7 @@ function makeSupabase(
     if (!order) {
       return { data: 'order_not_found', error: null };
     }
-    if (!['pending', 'failed'].includes(order.status)) {
+    if (!['pending', 'failed', 'expired'].includes(order.status)) {
       return { data: 'order_already_processed', error: null };
     }
 
@@ -167,12 +168,18 @@ function makeSupabase(
     order.status = 'paid';
     order.paid_at = params.p_paid_at;
     order.midtrans_transaction_id = params.p_transaction_id;
+    order.raw_webhook = params.p_raw_webhook ?? null;
     if (user) {
       user.tier = params.p_new_tier;
       user.expires_at = params.p_new_expires_at;
     }
     orderUpdates.push({ status: 'paid', midtrans_transaction_id: params.p_transaction_id });
     userUpdates.push({ tier: params.p_new_tier, expires_at: params.p_new_expires_at });
+
+    if (params.p_promo_code) {
+      const promo = state.promoCodes.find((p) => p.code === params.p_promo_code);
+      if (promo) promo.used_count = (promo.used_count ?? 0) + 1;
+    }
 
     return { data: 'ok', error: null };
   }
@@ -199,6 +206,19 @@ describe('verifyMidtransSignature', () => {
     expect(verifyMidtransSignature(notification, SERVER_KEY)).toBe(false);
   });
 });
+
+function fakeTelegramClient(opts: { inviteLink?: string | Error } = {}) {
+  const calls: any[] = [];
+  return {
+    calls,
+    createOneTimeInviteLink: async (name: string) => {
+      calls.push(name);
+      if (opts.inviteLink instanceof Error) throw opts.inviteLink;
+      return opts.inviteLink ?? 'https://t.me/+default';
+    },
+    kickFromGroup: async () => {},
+  };
+}
 
 describe('handleMidtransNotification', () => {
   it('returns invalid_signature and makes no updates when the signature is wrong', async () => {
@@ -227,8 +247,98 @@ describe('handleMidtransNotification', () => {
 
     expect(result).toEqual({ status: 'updated' });
     expect(supabase.state.orders[0]).toMatchObject({ status: 'paid', midtrans_transaction_id: 'tx-1' });
+    expect(supabase.state.orders[0].raw_webhook).toEqual(notification);
     expect(supabase.state.users[0].tier).toBe('gold');
     expect(supabase.state.users[0].expires_at).not.toBeNull();
+  });
+
+  it('increments the promo code used_count on settlement, not before', async () => {
+    const notification = signedNotification({ transaction_status: 'settlement' });
+    const supabase = makeSupabase({
+      orders: [
+        { id: 'order-1', midtrans_order_id: 'ST-u1-123', user_id: 'u1', plan: 'gold', status: 'pending', promo_code: 'HEMAT10' },
+      ],
+      users: [{ id: 'u1', tier: 'free', expires_at: null }],
+      promoCodes: [{ code: 'HEMAT10', used_count: 3 }],
+    });
+
+    const result = await handleMidtransNotification(supabase, notification, SERVER_KEY);
+
+    expect(result).toEqual({ status: 'updated' });
+    expect(supabase.state.promoCodes[0].used_count).toBe(4);
+  });
+
+  it('does not increment used_count a second time when the settlement is redelivered', async () => {
+    const notification = signedNotification({ transaction_status: 'settlement' });
+    const supabase = makeSupabase({
+      orders: [
+        { id: 'order-1', midtrans_order_id: 'ST-u1-123', user_id: 'u1', plan: 'gold', status: 'pending', promo_code: 'HEMAT10' },
+      ],
+      users: [{ id: 'u1', tier: 'free', expires_at: null }],
+      promoCodes: [{ code: 'HEMAT10', used_count: 0 }],
+    });
+
+    await handleMidtransNotification(supabase, notification, SERVER_KEY);
+    await handleMidtransNotification(supabase, notification, SERVER_KEY);
+
+    expect(supabase.state.promoCodes[0].used_count).toBe(1);
+  });
+
+  it('does not touch used_count for an order with no promo code', async () => {
+    const notification = signedNotification({ transaction_status: 'settlement' });
+    const supabase = makeSupabase({
+      orders: [{ id: 'order-1', midtrans_order_id: 'ST-u1-123', user_id: 'u1', plan: 'gold', status: 'pending' }],
+      users: [{ id: 'u1', tier: 'free', expires_at: null }],
+      promoCodes: [{ code: 'HEMAT10', used_count: 0 }],
+    });
+
+    await handleMidtransNotification(supabase, notification, SERVER_KEY);
+
+    expect(supabase.state.promoCodes[0].used_count).toBe(0);
+  });
+
+  it('generates a Telegram invite link and stores it on the order when the grant succeeds', async () => {
+    const notification = signedNotification({ transaction_status: 'settlement' });
+    const supabase = makeSupabase({
+      orders: [{ id: 'order-1', midtrans_order_id: 'ST-u1-123', user_id: 'u1', plan: 'gold', status: 'pending' }],
+      users: [{ id: 'u1', tier: 'free', expires_at: null, telegram_user_id: null }],
+    });
+    const telegram = fakeTelegramClient({ inviteLink: 'https://t.me/+abc123' });
+
+    const result = await handleMidtransNotification(supabase, notification, SERVER_KEY, telegram);
+
+    expect(result).toEqual({ status: 'updated' });
+    expect(telegram.calls).toEqual(['order-1']);
+    expect(supabase.state.orders[0].telegram_invite_link).toBe('https://t.me/+abc123');
+  });
+
+  it('does not request a new invite link for a user already linked to Telegram', async () => {
+    const notification = signedNotification({ transaction_status: 'settlement' });
+    const supabase = makeSupabase({
+      orders: [{ id: 'order-1', midtrans_order_id: 'ST-u1-123', user_id: 'u1', plan: 'gold', status: 'pending' }],
+      users: [{ id: 'u1', tier: 'free', expires_at: null, telegram_user_id: 555 }],
+    });
+    const telegram = fakeTelegramClient();
+
+    const result = await handleMidtransNotification(supabase, notification, SERVER_KEY, telegram);
+
+    expect(result).toEqual({ status: 'updated' });
+    expect(telegram.calls).toHaveLength(0);
+    expect(supabase.state.orders[0].telegram_invite_link).toBeUndefined();
+  });
+
+  it('still succeeds even if generating the Telegram invite link fails', async () => {
+    const notification = signedNotification({ transaction_status: 'settlement' });
+    const supabase = makeSupabase({
+      orders: [{ id: 'order-1', midtrans_order_id: 'ST-u1-123', user_id: 'u1', plan: 'gold', status: 'pending' }],
+      users: [{ id: 'u1', tier: 'free', expires_at: null, telegram_user_id: null }],
+    });
+    const telegram = fakeTelegramClient({ inviteLink: new Error('Telegram API down') });
+
+    const result = await handleMidtransNotification(supabase, notification, SERVER_KEY, telegram);
+
+    expect(result).toEqual({ status: 'updated' });
+    expect(supabase.state.users[0].tier).toBe('gold');
   });
 
   it('does not downgrade a lifetime user who buys a lower plan', async () => {
@@ -255,6 +365,7 @@ describe('handleMidtransNotification', () => {
 
     expect(result).toEqual({ status: 'updated' });
     expect(supabase.state.orders[0].status).toBe('failed');
+    expect(supabase.state.orders[0].raw_webhook).toEqual(notification);
     expect(supabase.state.users[0]).toEqual({ id: 'u1', tier: 'free', expires_at: null });
   });
 
@@ -339,6 +450,22 @@ describe('handleMidtransNotification', () => {
     expect(supabase.state.users[0].tier).toBe('gold');
   });
 
+  it('grants membership for a late settlement on an order the pending-order-expiry cron already expired', async () => {
+    // The hourly expire-pending-orders cron sets status='expired' on stale pending orders.
+    // A settlement that still arrives afterward (the money did move) must not be silently
+    // dropped -- same class of fix as the deny-then-retry case above.
+    const supabase = makeSupabase({
+      orders: [{ id: 'order-1', midtrans_order_id: 'ST-u1-123', user_id: 'u1', plan: 'gold', status: 'expired' }],
+      users: [{ id: 'u1', tier: 'free', expires_at: null }],
+    });
+
+    const result = await handleMidtransNotification(supabase, signedNotification({ transaction_status: 'settlement' }), SERVER_KEY);
+
+    expect(result).toEqual({ status: 'updated' });
+    expect(supabase.state.orders[0].status).toBe('paid');
+    expect(supabase.state.users[0].tier).toBe('gold');
+  });
+
   it('a late failure notification cannot overwrite an order that already succeeded', async () => {
     const supabase = makeSupabase({
       orders: [{ id: 'order-1', midtrans_order_id: 'ST-u1-123', user_id: 'u1', plan: 'gold', status: 'pending' }],
@@ -396,6 +523,40 @@ describe('handleMidtransNotification', () => {
     expect(supabase.rpcCalls).toHaveLength(2);
     expect(supabase.userUpdates).toHaveLength(1); // only the second (successful) call actually wrote
     expect(supabase.state.users[0].tier).toBe('gold'); // final state reflects the retry's upgrade from silver, not free
+  });
+
+  it('increments used_count exactly once even when the grant needed a concurrency retry', async () => {
+    // Same race as above, but the winning order also used a promo code -- the rejected
+    // first rpc call must not increment used_count, only the successful retry should.
+    const supabase = makeSupabase(
+      {
+        orders: [
+          { id: 'order-1', midtrans_order_id: 'ST-u1-123', user_id: 'u1', plan: 'gold', status: 'pending', promo_code: 'HEMAT10' },
+        ],
+        users: [{ id: 'u1', tier: 'free', expires_at: null }],
+        promoCodes: [{ code: 'HEMAT10', used_count: 0 }],
+      },
+      {
+        hooks: [
+          {
+            table: 'users',
+            mode: 'select',
+            once: true,
+            fn: () => {
+              supabase.state.users[0].tier = 'silver';
+              supabase.state.users[0].expires_at = new Date(Date.now() + 100 * 24 * 60 * 60 * 1000).toISOString();
+            },
+          },
+        ],
+      }
+    );
+
+    const result = await handleMidtransNotification(supabase, signedNotification({ transaction_status: 'settlement' }), SERVER_KEY);
+
+    expect(result).toEqual({ status: 'updated' });
+    expect(supabase.rpcCalls).toHaveLength(2);
+    expect(supabase.rpcCalls[0].params.p_promo_code).toBe('HEMAT10');
+    expect(supabase.state.promoCodes[0].used_count).toBe(1);
   });
 
   it('rpc precondition matches on the exact stored expires_at value, including sub-millisecond precision', async () => {

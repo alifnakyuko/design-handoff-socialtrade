@@ -19,8 +19,8 @@ export async function POST(request: Request) {
   const body = await request.json();
   const { type, title, required_tier, payload } = body ?? {};
 
-  if (type !== 'watchlist' && type !== 'article') {
-    return NextResponse.json({ error: 'type must be watchlist or article' }, { status: 400 });
+  if (type !== 'watchlist' && type !== 'article' && type !== 'video') {
+    return NextResponse.json({ error: 'type must be watchlist, article, or video' }, { status: 400 });
   }
   if (typeof title !== 'string' || !title.trim()) {
     return NextResponse.json({ error: 'title is required' }, { status: 400 });
@@ -35,6 +35,9 @@ export async function POST(request: Request) {
   }
   if (payload !== undefined && (typeof payload !== 'object' || payload === null || Array.isArray(payload))) {
     return NextResponse.json({ error: 'payload must be an object' }, { status: 400 });
+  }
+  if (type === 'video' && (typeof payload?.provider_asset_id !== 'string' || !payload.provider_asset_id.trim())) {
+    return NextResponse.json({ error: 'payload.provider_asset_id is required for video content' }, { status: 400 });
   }
 
   const adminSupabase = createAdminClient();

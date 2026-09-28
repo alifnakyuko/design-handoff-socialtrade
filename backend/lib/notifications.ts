@@ -1,6 +1,7 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
 import type { EmailClient } from './email';
 import { tierRank, type Tier } from './tiers';
+import { escapeHtml } from './html-escape';
 
 export type NotifiableContent = {
   title: string;
@@ -32,7 +33,7 @@ export async function sendContentNotification(
       emailClient.send({
         to: [u.email],
         subject: `Konten baru: ${item.title}`,
-        html: `<p>Ada ${item.type} baru untuk Anda: <strong>${item.title}</strong>. Login untuk melihat.</p>`,
+        html: `<p>Ada ${item.type} baru untuk Anda: <strong>${escapeHtml(item.title)}</strong>. Login untuk melihat.</p>`,
       })
     )
   );
