@@ -6,7 +6,14 @@ alter table public.orders
 -- apply_membership_grant gains p_raw_webhook, stored alongside the paid transition.
 -- Per the lesson learned in 0006: CREATE OR REPLACE cannot widen an argument list without
 -- creating a second, ambiguous overload -- drop the old (9-argument) signature first so
--- there is only ever one apply_membership_grant.
+-- there is only ever one apply_membership_grant. Also defensively drop the original
+-- 8-argument signature: it should already be gone (0006 dropped it before creating the
+-- 9-argument version), but if any environment ever applied an earlier, broken draft of 0006
+-- that skipped that drop, both would still exist -- this is a no-op everywhere else.
+drop function if exists public.apply_membership_grant(
+  uuid, timestamptz, text, uuid, text, timestamptz, text, timestamptz
+);
+
 drop function if exists public.apply_membership_grant(
   uuid, timestamptz, text, uuid, text, timestamptz, text, timestamptz, text
 );

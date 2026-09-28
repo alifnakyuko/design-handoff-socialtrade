@@ -1,7 +1,10 @@
 import { describe, it, expect } from 'vitest';
 import { handleTelegramUpdate } from './telegram-webhook';
 
-function fakeSupabase(opts: { orderRow?: { user_id: string } | null; updateError?: any }) {
+// Checks the actual column name/value passed to .eq() on both tables (rather than ignoring
+// them), so a bug like filtering on the wrong column would make these tests fail instead of
+// passing regardless.
+function fakeSupabase(opts: { ordersByInviteLink?: Record<string, { user_id: string }>; updateError?: any }) {
   const userUpdates: any[] = [];
   return {
     userUpdates,
@@ -9,11 +12,14 @@ function fakeSupabase(opts: { orderRow?: { user_id: string } | null; updateError
       if (table === 'orders') {
         return {
           select: () => ({
-            eq: () => ({
-              single: async () => ({
-                data: opts.orderRow ?? null,
-                error: opts.orderRow ? null : { message: 'not found' },
-              }),
+            eq: (col: string, val: string) => ({
+              single: async () => {
+                if (col !== 'telegram_invite_link') {
+                  throw new Error(`expected filter on telegram_invite_link, got ${col}`);
+                }
+                const row = opts.ordersByInviteLink?.[val];
+                return { data: row ?? null, error: row ? null : { message: 'not found' } };
+              },
             }),
           }),
         };
@@ -21,7 +27,10 @@ function fakeSupabase(opts: { orderRow?: { user_id: string } | null; updateError
       if (table === 'users') {
         return {
           update: (patch: any) => ({
-            eq: async (_col: string, id: string) => {
+            eq: async (col: string, id: string) => {
+              if (col !== 'id') {
+                throw new Error(`expected filter on id, got ${col}`);
+              }
               userUpdates.push({ id, patch });
               return { error: opts.updateError ?? null };
             },
@@ -35,7 +44,7 @@ function fakeSupabase(opts: { orderRow?: { user_id: string } | null; updateError
 
 describe('handleTelegramUpdate', () => {
   it('links the telegram user id to the order owner when they join via their invite link', async () => {
-    const supabase = fakeSupabase({ orderRow: { user_id: 'u1' } });
+    const supabase = fakeSupabase({ ordersByInviteLink: { 'https://t.me/+abc123': { user_id: 'u1' } } });
     const result = await handleTelegramUpdate(supabase, {
       chat_member: {
         new_chat_member: { user: { id: 999 }, status: 'member' },
@@ -72,7 +81,7 @@ describe('handleTelegramUpdate', () => {
   });
 
   it('returns invite_link_not_found when no order matches the invite link', async () => {
-    const supabase = fakeSupabase({ orderRow: null });
+    const supabase = fakeSupabase({ ordersByInviteLink: {} });
     const result = await handleTelegramUpdate(supabase, {
       chat_member: {
         new_chat_member: { user: { id: 999 }, status: 'member' },
@@ -82,8 +91,29 @@ describe('handleTelegramUpdate', () => {
     expect(result).toEqual({ status: 'invite_link_not_found' });
   });
 
+  it('links to the correct order when multiple invite links are known, not just the first', async () => {
+    const supabase = fakeSupabase({
+      ordersByInviteLink: {
+        'https://t.me/+aaa': { user_id: 'u-a' },
+        'https://t.me/+bbb': { user_id: 'u-b' },
+      },
+    });
+    const result = await handleTelegramUpdate(supabase, {
+      chat_member: {
+        new_chat_member: { user: { id: 999 }, status: 'member' },
+        invite_link: { invite_link: 'https://t.me/+bbb' },
+      },
+    });
+
+    expect(result).toEqual({ status: 'linked' });
+    expect(supabase.userUpdates).toEqual([{ id: 'u-b', patch: { telegram_user_id: 999 } }]);
+  });
+
   it('returns write_failed when updating the user fails', async () => {
-    const supabase = fakeSupabase({ orderRow: { user_id: 'u1' }, updateError: { message: 'db error' } });
+    const supabase = fakeSupabase({
+      ordersByInviteLink: { 'https://t.me/+abc123': { user_id: 'u1' } },
+      updateError: { message: 'db error' },
+    });
     const result = await handleTelegramUpdate(supabase, {
       chat_member: {
         new_chat_member: { user: { id: 999 }, status: 'member' },

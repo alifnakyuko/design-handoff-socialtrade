@@ -18,7 +18,16 @@ export async function listMembers(supabase: SupabaseClient): Promise<MemberRow[]
 
   if (usersError || !users) return [];
 
-  const { data: paidOrders } = await supabase.from('orders').select('user_id, final_amount').eq('status', 'paid');
+  const { data: paidOrders, error: ordersError } = await supabase
+    .from('orders')
+    .select('user_id, final_amount')
+    .eq('status', 'paid');
+
+  if (ordersError) {
+    // Fail loud rather than silently reporting 0 revenue for every member, which would look
+    // like a plausible (if wrong) answer instead of an obvious error.
+    throw new Error('Failed to load orders for revenue calculation');
+  }
 
   const revenueByUser = new Map<string, number>();
   for (const order of (paidOrders as { user_id: string; final_amount: number }[]) ?? []) {

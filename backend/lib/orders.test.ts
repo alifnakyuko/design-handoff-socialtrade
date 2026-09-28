@@ -1,7 +1,7 @@
 import { describe, it, expect } from 'vitest';
 import { getOrderStatus, listOrders } from './orders';
 
-function fakeSupabase(row: { status: string; plan: string; user_id: string } | null) {
+function fakeSupabase(row: { status: string; plan: string; user_id: string; telegram_invite_link?: string | null } | null) {
   return {
     from: () => ({
       select: () => ({
@@ -14,9 +14,13 @@ function fakeSupabase(row: { status: string; plan: string; user_id: string } | n
 }
 
 describe('getOrderStatus', () => {
-  it('returns the status and plan when the order belongs to the requesting user', async () => {
-    const supabase = fakeSupabase({ status: 'paid', plan: 'gold', user_id: 'u1' });
-    expect(await getOrderStatus(supabase, 'order-1', 'u1')).toEqual({ status: 'paid', plan: 'gold' });
+  it('returns the status, plan, and telegram invite link when the order belongs to the requesting user', async () => {
+    const supabase = fakeSupabase({ status: 'paid', plan: 'gold', user_id: 'u1', telegram_invite_link: 'https://t.me/+abc' });
+    expect(await getOrderStatus(supabase, 'order-1', 'u1')).toEqual({
+      status: 'paid',
+      plan: 'gold',
+      telegramInviteLink: 'https://t.me/+abc',
+    });
   });
 
   it('returns null when the order does not exist', async () => {
@@ -54,6 +58,7 @@ describe('listOrders', () => {
         status: 'paid',
         created_at: '2026-02-01T00:00:00.000Z',
         paid_at: '2026-02-01T00:05:00.000Z',
+        telegram_invite_link: 'https://t.me/+abc123',
       },
       {
         id: 'order-1',
@@ -64,6 +69,7 @@ describe('listOrders', () => {
         status: 'failed',
         created_at: '2026-01-01T00:00:00.000Z',
         paid_at: null,
+        telegram_invite_link: null,
       },
     ]);
 
@@ -79,6 +85,7 @@ describe('listOrders', () => {
         status: 'paid',
         createdAt: '2026-02-01T00:00:00.000Z',
         paidAt: '2026-02-01T00:05:00.000Z',
+        telegramInviteLink: 'https://t.me/+abc123',
       },
       {
         id: 'order-1',
@@ -89,6 +96,7 @@ describe('listOrders', () => {
         status: 'failed',
         createdAt: '2026-01-01T00:00:00.000Z',
         paidAt: null,
+        telegramInviteLink: null,
       },
     ]);
   });

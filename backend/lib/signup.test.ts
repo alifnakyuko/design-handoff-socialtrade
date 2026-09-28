@@ -61,6 +61,18 @@ describe('signup', () => {
     expect(sent[0].html).toContain('Ana');
   });
 
+  it('HTML-escapes the name before interpolating it into the welcome email', async () => {
+    const supabase = fakeAdminSupabase({ createUserResult: { user: { id: 'u1' }, error: null } });
+    const sent: any[] = [];
+    const emailClient = { send: async (params: any) => { sent.push(params); } };
+    const maliciousName = '<img src=x onerror=alert(1)>';
+
+    await signup(supabase, { email: 'ana@x.com', password: 'secret123', name: maliciousName }, emailClient);
+
+    expect(sent[0].html).not.toContain('<img');
+    expect(sent[0].html).toContain('&lt;img');
+  });
+
   it('still succeeds even if sending the welcome email fails', async () => {
     const supabase = fakeAdminSupabase({ createUserResult: { user: { id: 'u1' }, error: null } });
     const emailClient = { send: async () => { throw new Error('resend down'); } };

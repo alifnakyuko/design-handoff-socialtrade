@@ -1,5 +1,6 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
 import type { EmailClient } from './email';
+import { escapeHtml } from './html-escape';
 
 export type SignupInput = { email: string; password: string; name: string };
 export type SignupResult = { status: 'ok'; userId: string } | { status: 'error'; message: string };
@@ -39,7 +40,7 @@ export async function signup(
       await emailClient.send({
         to: [input.email],
         subject: 'Selamat bergabung di Social Trade',
-        html: `<p>Halo ${input.name},</p><p>Akun kamu berhasil dibuat. Selamat datang di Social Trade!</p>`,
+        html: `<p>Halo ${escapeHtml(input.name)},</p><p>Akun kamu berhasil dibuat. Selamat datang di Social Trade!</p>`,
       });
     } catch (emailError) {
       console.error('Failed to send welcome email to', input.email, emailError);
