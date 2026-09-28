@@ -69,4 +69,21 @@ describe('publishContent', () => {
       notified_count: 1,
     });
   });
+
+  it('allows publishing a video content item', async () => {
+    const supabase = fakeSupabase();
+    const emailClient = fakeEmailClient();
+
+    const result = await publishContent(supabase, emailClient, {
+      type: 'video',
+      title: 'Cara Baca Laporan Keuangan',
+      required_tier: 'silver',
+      payload: { provider_asset_id: 'bunny-asset-1', duration_sec: 620 },
+      createdBy: 'admin-1',
+    });
+
+    expect(result).toEqual({ id: 'content-1', notifiedCount: 1 });
+    expect(supabase.inserted[0]).toMatchObject({ type: 'video', required_tier: 'silver' });
+    expect(supabase.pushHistoryRows[0]).toMatchObject({ type: 'video' });
+  });
 });
