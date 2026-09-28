@@ -56,7 +56,7 @@ export async function handleMidtransNotification(
     // that a different (earlier or concurrent) notification already marked 'paid'.
     const { error: failedUpdateError } = await supabase
       .from('orders')
-      .update({ status: 'failed' })
+      .update({ status: 'failed', raw_webhook: notification })
       .eq('id', order.id)
       .eq('status', 'pending');
     if (failedUpdateError) {
@@ -110,6 +110,7 @@ export async function handleMidtransNotification(
       p_new_tier: newState.tier,
       p_new_expires_at: newState.expiresAt ? newState.expiresAt.toISOString() : null,
       p_promo_code: order.promo_code ?? null,
+      p_raw_webhook: notification,
     });
 
     if (rpcError) {

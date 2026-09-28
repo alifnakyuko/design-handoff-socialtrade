@@ -168,6 +168,7 @@ function makeSupabase(
     order.status = 'paid';
     order.paid_at = params.p_paid_at;
     order.midtrans_transaction_id = params.p_transaction_id;
+    order.raw_webhook = params.p_raw_webhook ?? null;
     if (user) {
       user.tier = params.p_new_tier;
       user.expires_at = params.p_new_expires_at;
@@ -233,6 +234,7 @@ describe('handleMidtransNotification', () => {
 
     expect(result).toEqual({ status: 'updated' });
     expect(supabase.state.orders[0]).toMatchObject({ status: 'paid', midtrans_transaction_id: 'tx-1' });
+    expect(supabase.state.orders[0].raw_webhook).toEqual(notification);
     expect(supabase.state.users[0].tier).toBe('gold');
     expect(supabase.state.users[0].expires_at).not.toBeNull();
   });
@@ -306,6 +308,7 @@ describe('handleMidtransNotification', () => {
 
     expect(result).toEqual({ status: 'updated' });
     expect(supabase.state.orders[0].status).toBe('failed');
+    expect(supabase.state.orders[0].raw_webhook).toEqual(notification);
     expect(supabase.state.users[0]).toEqual({ id: 'u1', tier: 'free', expires_at: null });
   });
 
