@@ -38,6 +38,10 @@ export async function publishContent(
     required_tier: input.required_tier,
   });
 
+  // Best-effort: the content item is already created and subscribers already notified by
+  // this point, so a failure here must not surface as a publish failure -- otherwise the
+  // admin sees an error for a publish that actually succeeded and may resubmit, duplicating
+  // the content item and re-notifying every subscriber.
   const { error: pushHistoryError } = await supabase.from('push_history').insert({
     content_item_id: inserted.id,
     type: input.type,
@@ -47,7 +51,7 @@ export async function publishContent(
   });
 
   if (pushHistoryError) {
-    throw new Error('Failed to log push history');
+    console.error('Failed to log push history for content item', inserted.id, pushHistoryError);
   }
 
   return { id: inserted.id, notifiedCount };

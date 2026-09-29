@@ -86,4 +86,25 @@ describe('publishContent', () => {
     expect(supabase.inserted[0]).toMatchObject({ type: 'video', required_tier: 'silver' });
     expect(supabase.pushHistoryRows[0]).toMatchObject({ type: 'video' });
   });
+
+  it('still returns success when logging push history fails, since the content item and notifications already went out', async () => {
+    const supabase = fakeSupabase();
+    supabase.from = ((table: string) => {
+      if (table === 'push_history') {
+        return { insert: async () => ({ error: { message: 'db error' } }) };
+      }
+      return fakeSupabase().from(table);
+    }) as any;
+    const emailClient = fakeEmailClient();
+
+    const result = await publishContent(supabase, emailClient, {
+      type: 'article',
+      title: 'Analisa Mingguan',
+      required_tier: 'gold',
+      payload: {},
+      createdBy: 'admin-1',
+    });
+
+    expect(result).toEqual({ id: 'content-1', notifiedCount: 1 });
+  });
 });
