@@ -74,6 +74,26 @@ describe('sendContentNotification', () => {
     expect(emailClient.calls.map((c) => c.to[0])).toEqual(['active-gold@x.com']);
   });
 
+  it('continues notifying other eligible members and returns the successful count when one send fails', async () => {
+    const supabase = fakeSupabase([
+      { email: 'fails@x.com', tier: 'gold', expires_at: null },
+      { email: 'succeeds@x.com', tier: 'gold', expires_at: null },
+    ]);
+    const emailClient: EmailClient = {
+      send: async ({ to }) => {
+        if (to[0] === 'fails@x.com') throw new Error('RESEND_API_KEY must be set');
+      },
+    };
+
+    const count = await sendContentNotification(supabase, emailClient, {
+      title: 'Gold report',
+      type: 'article',
+      required_tier: 'gold',
+    });
+
+    expect(count).toBe(1);
+  });
+
   it('HTML-escapes the content title before interpolating it into the notification email', async () => {
     const supabase = fakeSupabase([{ email: 'gold@x.com', tier: 'gold', expires_at: null }]);
     const emailClient = fakeEmailClient();

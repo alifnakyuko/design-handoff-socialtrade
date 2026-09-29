@@ -28,15 +28,19 @@ export async function sendContentNotification(
   });
   if (eligible.length === 0) return 0;
 
-  await Promise.all(
-    eligible.map((u) =>
-      emailClient.send({
+  let sentCount = 0;
+  for (const u of eligible) {
+    try {
+      await emailClient.send({
         to: [u.email],
         subject: `Konten baru: ${item.title}`,
         html: `<p>Ada ${item.type} baru untuk Anda: <strong>${escapeHtml(item.title)}</strong>. Login untuk melihat.</p>`,
-      })
-    )
-  );
+      });
+      sentCount += 1;
+    } catch (sendError) {
+      console.error('Failed to send content notification to', u.email, sendError);
+    }
+  }
 
-  return eligible.length;
+  return sentCount;
 }
