@@ -78,7 +78,7 @@ describe('publishContent', () => {
       type: 'video',
       title: 'Cara Baca Laporan Keuangan',
       required_tier: 'silver',
-      payload: { provider_asset_id: 'bunny-asset-1', duration_sec: 620 },
+      payload: { provider_asset_id: 'youtube-asset-1', duration_sec: 620 },
       createdBy: 'admin-1',
     });
 

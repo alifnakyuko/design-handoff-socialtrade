@@ -17,9 +17,9 @@ vi.mock('@/lib/content-access', () => ({
   getContentById: (...args: any[]) => getContentByIdMock(...args),
 }));
 
-const getSignedPlaybackUrlMock = vi.fn();
+const getPlaybackUrlMock = vi.fn();
 vi.mock('@/lib/video-provider', () => ({
-  createBunnyStreamProvider: () => ({ getSignedPlaybackUrl: getSignedPlaybackUrlMock }),
+  createYoutubeProvider: () => ({ getPlaybackUrl: getPlaybackUrlMock }),
 }));
 
 import { GET } from './route';
@@ -67,20 +67,20 @@ describe('GET /api/videos/[id]/play', () => {
     expect(response.status).toBe(500);
   });
 
-  it('returns a signed playback url when access is granted', async () => {
+  it('returns a playback url when access is granted', async () => {
     getCurrentUserMock.mockResolvedValueOnce({ tier: 'gold' });
     getContentByIdMock.mockResolvedValueOnce({
       status: 200,
       item: { id: 'vid-1', type: 'video', payload: { provider_asset_id: 'asset-123' } },
     });
-    getSignedPlaybackUrlMock.mockReturnValueOnce('https://iframe.mediadelivery.net/embed/lib-1/asset-123?token=abc&expires=999');
+    getPlaybackUrlMock.mockReturnValueOnce('https://www.youtube-nocookie.com/embed/asset-123');
 
     const response = await GET(makeRequest(), { params: { id: 'vid-1' } });
     const body = await response.json();
 
     expect(response.status).toBe(200);
-    expect(body).toEqual({ url: 'https://iframe.mediadelivery.net/embed/lib-1/asset-123?token=abc&expires=999' });
-    expect(getSignedPlaybackUrlMock).toHaveBeenCalledWith('asset-123');
+    expect(body).toEqual({ url: 'https://www.youtube-nocookie.com/embed/asset-123' });
+    expect(getPlaybackUrlMock).toHaveBeenCalledWith('asset-123');
   });
 
   it('treats an unauthenticated viewer as free tier (relies on getContentById for the actual gate)', async () => {

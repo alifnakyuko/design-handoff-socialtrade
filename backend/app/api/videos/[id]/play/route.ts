@@ -3,7 +3,7 @@ import { createServerSupabase } from '@/lib/supabase/server';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { getCurrentUser } from '@/lib/current-user';
 import { getContentById } from '@/lib/content-access';
-import { createBunnyStreamProvider } from '@/lib/video-provider';
+import { createYoutubeProvider } from '@/lib/video-provider';
 
 export async function GET(request: Request, { params }: { params: { id: string } }) {
   const sessionSupabase = createServerSupabase();
@@ -30,8 +30,8 @@ export async function GET(request: Request, { params }: { params: { id: string }
     return NextResponse.json({ error: 'Video is not playable' }, { status: 500 });
   }
 
-  const provider = createBunnyStreamProvider();
-  const url = provider.getSignedPlaybackUrl(assetId);
+  const provider = createYoutubeProvider();
+  const url = provider.getPlaybackUrl(assetId);
 
   return NextResponse.json({ url });
 }
