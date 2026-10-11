@@ -5,6 +5,7 @@ export interface SnapClient {
     orderId: string;
     grossAmount: number;
     customerEmail: string;
+    finishUrl?: string;
   }): Promise<{ token: string; redirectUrl: string }>;
 }
 
@@ -22,10 +23,11 @@ export function createMidtransSnapClient(): SnapClient {
   });
 
   return {
-    async createTransaction({ orderId, grossAmount, customerEmail }) {
+    async createTransaction({ orderId, grossAmount, customerEmail, finishUrl }) {
       const transaction = await snap.createTransaction({
         transaction_details: { order_id: orderId, gross_amount: grossAmount },
         customer_details: { email: customerEmail },
+        ...(finishUrl ? { callbacks: { finish: finishUrl } } : {}),
       });
       return { token: transaction.token, redirectUrl: transaction.redirect_url };
     },

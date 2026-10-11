@@ -53,10 +53,12 @@ export async function createCheckout(
     throw new Error('Failed to create order');
   }
 
+  const appUrl = process.env.APP_URL;
   const transaction = await snap.createTransaction({
     orderId: midtransOrderId,
     grossAmount: finalAmount,
     customerEmail: input.userEmail,
+    finishUrl: appUrl ? `${appUrl}/checkout/success` : undefined,
   });
 
   return {
