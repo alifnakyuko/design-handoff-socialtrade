@@ -15,7 +15,12 @@ export function createServerSupabase(): SupabaseClient {
         return cookieStore.getAll();
       },
       setAll(cookiesToSet: { name: string; value: string; options: CookieOptions }[]) {
-        cookiesToSet.forEach(({ name, value, options }) => cookieStore.set(name, value, options));
+        try {
+          cookiesToSet.forEach(({ name, value, options }) => cookieStore.set(name, value, options));
+        } catch {
+          // Called from a Server Component, where cookies() is read-only. Harmless to ignore:
+          // middleware.ts (added alongside this) is what actually persists a refreshed session.
+        }
       },
     },
   }) as unknown as SupabaseClient;
