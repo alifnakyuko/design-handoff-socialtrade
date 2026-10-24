@@ -1043,7 +1043,7 @@ git commit -m "feat: add admin API client, nav, and route-group auth gate"
 ## Task 7: Content management page
 
 **Files:**
-- Create: `backend/app/(admin)/content/page.tsx`
+- Create: `backend/app/(admin)/admin/content/page.tsx`
 
 **Interfaces:**
 - Consumes: `adminApiClient` (Task 6).
@@ -1051,7 +1051,7 @@ git commit -m "feat: add admin API client, nav, and route-group auth gate"
 - [ ] **Step 1: Create the page**
 
 ```tsx
-// backend/app/(admin)/content/page.tsx
+// backend/app/(admin)/admin/content/page.tsx
 'use client';
 
 import { useEffect, useState } from 'react';
@@ -1240,7 +1240,7 @@ Run `cd backend && npm run dev`, log in as the real admin, open `/admin/content`
 - [ ] **Step 3: Commit**
 
 ```bash
-git add "backend/app/(admin)/content/page.tsx"
+git add "backend/app/(admin)/admin/content/page.tsx"
 git commit -m "feat: add admin content management page"
 ```
 
@@ -1249,7 +1249,7 @@ git commit -m "feat: add admin content management page"
 ## Task 8: Member management page
 
 **Files:**
-- Create: `backend/app/(admin)/members/page.tsx`
+- Create: `backend/app/(admin)/admin/members/page.tsx`
 
 **Interfaces:**
 - Consumes: `adminApiClient` (Task 6).
@@ -1257,7 +1257,7 @@ git commit -m "feat: add admin content management page"
 - [ ] **Step 1: Create the page**
 
 ```tsx
-// backend/app/(admin)/members/page.tsx
+// backend/app/(admin)/admin/members/page.tsx
 'use client';
 
 import { useEffect, useState } from 'react';
@@ -1391,7 +1391,7 @@ Run `cd backend && npm run dev`, log in as the real admin, open `/admin/members`
 - [ ] **Step 3: Commit**
 
 ```bash
-git add "backend/app/(admin)/members/page.tsx"
+git add "backend/app/(admin)/admin/members/page.tsx"
 git commit -m "feat: add admin member management page with audit history"
 ```
 
