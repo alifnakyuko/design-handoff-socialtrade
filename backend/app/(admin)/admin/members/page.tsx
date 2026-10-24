@@ -14,8 +14,10 @@ export default function AdminMembersPage() {
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editTier, setEditTier] = useState('free');
   const [editExpiresAt, setEditExpiresAt] = useState('');
+  const [editOriginalExpiresAt, setEditOriginalExpiresAt] = useState<string | null>(null);
   const [expandedId, setExpandedId] = useState<string | null>(null);
   const [audits, setAudits] = useState<Record<string, MemberEdit[]>>({});
+  const [error, setError] = useState<string | null>(null);
 
   async function reload() {
     setMembers(await adminApiClient.listMembers());
@@ -29,15 +31,34 @@ export default function AdminMembersPage() {
     setEditingId(member.id);
     setEditTier(member.tier);
     setEditExpiresAt(member.expiresAt ? member.expiresAt.slice(0, 10) : '');
+    setEditOriginalExpiresAt(member.expiresAt ?? null);
+    setError(null);
   }
 
   async function handleSave(id: string) {
-    await adminApiClient.updateMember(id, {
-      tier: editTier,
-      expiresAt: editExpiresAt ? new Date(editExpiresAt).toISOString() : null,
-    });
-    setEditingId(null);
-    await reload();
+    setError(null);
+    try {
+      const originalDatePart = editOriginalExpiresAt ? editOriginalExpiresAt.slice(0, 10) : '';
+      const expiresAt =
+        editExpiresAt === originalDatePart
+          ? editOriginalExpiresAt
+          : editExpiresAt
+            ? new Date(editExpiresAt).toISOString()
+            : null;
+      await adminApiClient.updateMember(id, {
+        tier: editTier,
+        expiresAt,
+      });
+      setEditingId(null);
+      setAudits((prev) => {
+        const next = { ...prev };
+        delete next[id];
+        return next;
+      });
+      await reload();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Gagal menyimpan member');
+    }
   }
 
   async function toggleAudit(id: string) {
@@ -82,7 +103,9 @@ export default function AdminMembersPage() {
             </div>
 
             {editingId === member.id && (
-              <div className="px-4 pb-4 flex items-center gap-2">
+              <div className="px-4 pb-4">
+                {error && <p className="mb-2 text-sm text-red-600">{error}</p>}
+                <div className="flex items-center gap-2">
                 <select value={editTier} onChange={(e) => setEditTier(e.target.value)} className="px-3 py-2 border border-brand-cream-dark rounded-lg">
                   {TIERS.map((t) => (
                     <option key={t} value={t}>
@@ -102,6 +125,7 @@ export default function AdminMembersPage() {
                 <button onClick={() => setEditingId(null)} className="px-4 py-2 bg-brand-cream-dark text-brand-dark font-semibold rounded-full text-sm">
                   Batal
                 </button>
+                </div>
               </div>
             )}
 

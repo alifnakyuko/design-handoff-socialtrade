@@ -60,9 +60,14 @@ export default function AdminContentPage() {
   }
 
   async function handleDelete(id: string) {
-    await adminApiClient.deleteContent(id);
-    setConfirmDeleteId(null);
-    await reload();
+    setError(null);
+    try {
+      await adminApiClient.deleteContent(id);
+      setConfirmDeleteId(null);
+      await reload();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Gagal menghapus konten');
+    }
   }
 
   return (
