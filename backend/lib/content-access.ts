@@ -16,6 +16,9 @@ export type ContentListItem =
   | (ContentRow & { locked: false })
   | { id: string; type: ContentType; title: string; required_tier: Tier; locked: true };
 
+// Excludes created_by: nothing public-facing needs the publishing admin's user id.
+const PUBLIC_COLUMNS = 'id, type, title, required_tier, payload, published_at';
+
 export function redactForTier(item: ContentRow, viewerTier: Tier): ContentListItem {
   if (hasAccess(viewerTier, item.required_tier)) {
     return { ...item, locked: false };
@@ -34,7 +37,7 @@ export async function listContent(
   viewerTier: Tier,
   type?: ContentType
 ): Promise<ContentListItem[]> {
-  let query = supabase.from('content_items').select('*').order('published_at', { ascending: false });
+  let query = supabase.from('content_items').select(PUBLIC_COLUMNS).order('published_at', { ascending: false });
   if (type) query = query.eq('type', type);
   const { data, error } = await query;
   if (error || !data) return [];
@@ -46,7 +49,7 @@ export async function getContentById(
   viewerTier: Tier,
   id: string
 ): Promise<{ status: 200; item: ContentRow } | { status: 403 } | { status: 404 }> {
-  const { data, error } = await supabase.from('content_items').select('*').eq('id', id).single();
+  const { data, error } = await supabase.from('content_items').select(PUBLIC_COLUMNS).eq('id', id).single();
   if (error || !data) return { status: 404 };
   const item = data as ContentRow;
   if (!hasAccess(viewerTier, item.required_tier)) return { status: 403 };

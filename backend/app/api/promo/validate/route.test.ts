@@ -1,4 +1,4 @@
-import { describe, it, expect, vi } from 'vitest';
+import { describe, it, expect, vi, beforeEach } from 'vitest';
 
 vi.mock('@/lib/supabase/admin', () => ({
   createAdminClient: () => ({}),
@@ -7,6 +7,11 @@ vi.mock('@/lib/supabase/admin', () => ({
 const validatePromoMock = vi.fn();
 vi.mock('@/lib/promo', () => ({
   validatePromo: (...args: any[]) => validatePromoMock(...args),
+}));
+
+const rateLimitMock = vi.fn();
+vi.mock('@/lib/promo-rate-limit', () => ({
+  checkPromoValidateRateLimit: (...args: any[]) => rateLimitMock(...args),
 }));
 
 import { POST } from './route';
@@ -18,6 +23,11 @@ function makeRequest(body: any): Request {
     body: JSON.stringify(body),
   });
 }
+
+beforeEach(() => {
+  rateLimitMock.mockReset().mockResolvedValue(true);
+  validatePromoMock.mockReset();
+});
 
 describe('POST /api/promo/validate', () => {
   it('returns 400 when code is missing', async () => {
@@ -49,5 +59,14 @@ describe('POST /api/promo/validate', () => {
 
     expect(response.status).toBe(200);
     expect(body).toEqual({ valid: false });
+  });
+
+  it('returns 429 when the rate limit is exceeded, without calling validatePromo', async () => {
+    rateLimitMock.mockResolvedValueOnce(false);
+
+    const response = await POST(makeRequest({ code: 'HEMAT10', plan: 'silver' }));
+
+    expect(response.status).toBe(429);
+    expect(validatePromoMock).not.toHaveBeenCalled();
   });
 });

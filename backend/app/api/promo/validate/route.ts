@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { validatePromo } from '@/lib/promo';
+import { checkPromoValidateRateLimit } from '@/lib/promo-rate-limit';
 import type { Plan } from '@/lib/pricing';
 
 const VALID_PLANS: Plan[] = ['silver', 'gold', 'platinum', 'lifetime'];
@@ -17,6 +18,13 @@ export async function POST(request: Request) {
   }
 
   const supabase = createAdminClient();
+
+  const ip = request.headers.get('x-forwarded-for')?.split(',')[0]?.trim() || 'unknown';
+  const withinLimit = await checkPromoValidateRateLimit(supabase, ip);
+  if (!withinLimit) {
+    return NextResponse.json({ error: 'Too many attempts, please try again later' }, { status: 429 });
+  }
+
   const result = await validatePromo(supabase, code.trim(), plan);
 
   if (!result.valid) {
