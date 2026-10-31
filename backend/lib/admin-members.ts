@@ -44,3 +44,38 @@ export async function listMembers(supabase: SupabaseClient): Promise<MemberRow[]
     totalRevenue: revenueByUser.get(u.id) ?? 0,
   }));
 }
+
+export async function updateMemberTier(
+  supabase: SupabaseClient,
+  input: { userId: string; adminId: string; tier: string; expiresAt: string | null }
+): Promise<{ status: 'ok' } | { status: 'not_found' }> {
+  const { error } = await supabase.rpc('admin_update_member', {
+    p_user_id: input.userId,
+    p_admin_id: input.adminId,
+    p_new_tier: input.tier,
+    p_new_expires_at: input.expiresAt,
+  });
+  if (error?.message?.includes('user_not_found')) return { status: 'not_found' };
+  if (error) throw new Error('Failed to update member');
+  return { status: 'ok' };
+}
+
+export type MemberEditRow = {
+  id: string;
+  old_tier: string | null;
+  new_tier: string;
+  old_expires_at: string | null;
+  new_expires_at: string | null;
+  admin_id: string;
+  created_at: string;
+};
+
+export async function getMemberAuditHistory(supabase: SupabaseClient, userId: string): Promise<MemberEditRow[]> {
+  const { data, error } = await supabase
+    .from('member_edits')
+    .select('id, old_tier, new_tier, old_expires_at, new_expires_at, admin_id, created_at')
+    .eq('user_id', userId)
+    .order('created_at', { ascending: false });
+  if (error || !data) return [];
+  return data as MemberEditRow[];
+}

@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { listMembers } from './admin-members';
+import { listMembers, updateMemberTier, getMemberAuditHistory } from './admin-members';
 
 // Evaluates the orders query's .eq() against real row data instead of ignoring its
 // column/value (a class of mock bug this project has been bitten by before), so a wrong
@@ -82,5 +82,53 @@ describe('listMembers', () => {
     );
 
     await expect(listMembers(supabase)).rejects.toThrow('Failed to load orders for revenue calculation');
+  });
+});
+
+describe('updateMemberTier', () => {
+  it('calls the admin_update_member RPC with the given values and returns ok', async () => {
+    const rpcCalls: any[] = [];
+    const supabase = {
+      rpc: async (fn: string, args: any) => {
+        rpcCalls.push({ fn, args });
+        return { error: null };
+      },
+    } as any;
+
+    const result = await updateMemberTier(supabase, {
+      userId: 'u1',
+      adminId: 'admin1',
+      tier: 'gold',
+      expiresAt: '2027-01-01T00:00:00.000Z',
+    });
+
+    expect(result).toEqual({ status: 'ok' });
+    expect(rpcCalls[0]).toEqual({
+      fn: 'admin_update_member',
+      args: { p_user_id: 'u1', p_admin_id: 'admin1', p_new_tier: 'gold', p_new_expires_at: '2027-01-01T00:00:00.000Z' },
+    });
+  });
+
+  it('returns not_found when the RPC reports the user does not exist', async () => {
+    const supabase = {
+      rpc: async () => ({ error: { message: 'user_not_found' } }),
+    } as any;
+
+    const result = await updateMemberTier(supabase, { userId: 'missing', adminId: 'admin1', tier: 'gold', expiresAt: null });
+
+    expect(result).toEqual({ status: 'not_found' });
+  });
+});
+
+describe('getMemberAuditHistory', () => {
+  it('returns the edit rows for a user, newest first', async () => {
+    const rows = [{ id: 'e1', old_tier: 'free', new_tier: 'gold', old_expires_at: null, new_expires_at: null, admin_id: 'a1', created_at: '2026-01-01' }];
+    const supabase = {
+      from: () => ({ select: () => ({ eq: () => ({ order: async () => ({ data: rows, error: null }) }) }) }),
+    } as any;
+
+    const result = await getMemberAuditHistory(supabase, 'u1');
+
+    expect(result).toEqual(rows);
   });
 });

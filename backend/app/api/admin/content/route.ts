@@ -3,7 +3,7 @@ import { createServerSupabase } from '@/lib/supabase/server';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { getCurrentUser } from '@/lib/current-user';
 import { createResendEmailClient } from '@/lib/email';
-import { publishContent } from '@/lib/admin-content';
+import { publishContent, listAllContent } from '@/lib/admin-content';
 
 export async function POST(request: Request) {
   const sessionSupabase = createServerSupabase();
@@ -52,4 +52,20 @@ export async function POST(request: Request) {
   });
 
   return NextResponse.json(result, { status: 201 });
+}
+
+export async function GET() {
+  const sessionSupabase = createServerSupabase();
+  const currentUser = await getCurrentUser(sessionSupabase);
+
+  if (!currentUser) {
+    return NextResponse.json({ error: 'Not authenticated' }, { status: 401 });
+  }
+  if (!currentUser.isAdmin) {
+    return NextResponse.json({ error: 'Admin access required' }, { status: 403 });
+  }
+
+  const adminSupabase = createAdminClient();
+  const items = await listAllContent(adminSupabase);
+  return NextResponse.json({ items });
 }

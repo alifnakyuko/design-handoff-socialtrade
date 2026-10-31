@@ -1,4 +1,5 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
+import type { ContentRow } from './content-access';
 import type { EmailClient } from './email';
 import { sendContentNotification } from './notifications';
 import type { Tier } from './tiers';
@@ -55,4 +56,54 @@ export async function publishContent(
   }
 
   return { id: inserted.id, notifiedCount };
+}
+
+export async function listAllContent(supabase: SupabaseClient): Promise<ContentRow[]> {
+  const { data, error } = await supabase
+    .from('content_items')
+    .select('id, type, title, required_tier, payload, published_at')
+    .order('published_at', { ascending: false });
+  if (error || !data) return [];
+  return data as ContentRow[];
+}
+
+export type UpdateContentInput = Partial<{
+  title: string;
+  required_tier: Tier;
+  payload: Record<string, unknown>;
+}>;
+
+export async function updateContent(
+  supabase: SupabaseClient,
+  id: string,
+  input: UpdateContentInput
+): Promise<{ status: 'ok' } | { status: 'not_found' } | { status: 'invalid_payload' }> {
+  const { data: existing, error: fetchError } = await supabase
+    .from('content_items')
+    .select('id, type')
+    .eq('id', id)
+    .single();
+  if (fetchError || !existing) return { status: 'not_found' };
+
+  if (
+    input.payload !== undefined &&
+    existing.type === 'video' &&
+    (typeof input.payload.provider_asset_id !== 'string' || !input.payload.provider_asset_id.trim())
+  ) {
+    return { status: 'invalid_payload' };
+  }
+
+  const patch: Record<string, unknown> = {};
+  if (input.title !== undefined) patch.title = input.title;
+  if (input.required_tier !== undefined) patch.required_tier = input.required_tier;
+  if (input.payload !== undefined) patch.payload = input.payload;
+
+  const { error } = await supabase.from('content_items').update(patch).eq('id', id);
+  if (error) throw new Error('Failed to update content item');
+  return { status: 'ok' };
+}
+
+export async function deleteContent(supabase: SupabaseClient, id: string): Promise<void> {
+  const { error } = await supabase.from('content_items').delete().eq('id', id);
+  if (error) throw new Error('Failed to delete content item');
 }

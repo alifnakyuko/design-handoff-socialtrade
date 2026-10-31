@@ -119,3 +119,92 @@ export const apiClient = {
     return parseJson(res);
   },
 };
+
+export type AdminContentItem = {
+  id: string;
+  type: 'watchlist' | 'video' | 'article';
+  title: string;
+  required_tier: string;
+  payload: Record<string, unknown>;
+  published_at: string;
+};
+
+export type AdminMember = {
+  id: string;
+  email: string;
+  name: string;
+  tier: string;
+  expiresAt: string | null;
+  createdAt: string;
+  totalRevenue: number;
+};
+
+export type MemberEdit = {
+  id: string;
+  old_tier: string | null;
+  new_tier: string;
+  old_expires_at: string | null;
+  new_expires_at: string | null;
+  admin_id: string;
+  created_at: string;
+};
+
+export const adminApiClient = {
+  async listContent(): Promise<AdminContentItem[]> {
+    const res = await fetch('/api/admin/content');
+    const body = await parseJson<{ items: AdminContentItem[] }>(res);
+    return body.items;
+  },
+
+  async createContent(input: {
+    type: 'watchlist' | 'video' | 'article';
+    title: string;
+    required_tier: string;
+    payload: Record<string, unknown>;
+  }): Promise<{ id: string }> {
+    const res = await fetch('/api/admin/content', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(input),
+    });
+    return parseJson(res);
+  },
+
+  async updateContent(
+    id: string,
+    input: Partial<{ title: string; required_tier: string; payload: Record<string, unknown> }>
+  ): Promise<void> {
+    const res = await fetch(`/api/admin/content/${id}`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(input),
+    });
+    await parseJson(res);
+  },
+
+  async deleteContent(id: string): Promise<void> {
+    const res = await fetch(`/api/admin/content/${id}`, { method: 'DELETE' });
+    await parseJson(res);
+  },
+
+  async listMembers(): Promise<AdminMember[]> {
+    const res = await fetch('/api/admin/members');
+    const body = await parseJson<{ members: AdminMember[] }>(res);
+    return body.members;
+  },
+
+  async updateMember(id: string, input: { tier: string; expiresAt: string | null }): Promise<void> {
+    const res = await fetch(`/api/admin/members/${id}`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(input),
+    });
+    await parseJson(res);
+  },
+
+  async getMemberAudit(id: string): Promise<MemberEdit[]> {
+    const res = await fetch(`/api/admin/members/${id}/audit`);
+    const body = await parseJson<{ edits: MemberEdit[] }>(res);
+    return body.edits;
+  },
+};
